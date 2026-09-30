@@ -84,7 +84,7 @@
   }
 
   /* ---------- status: always a shape plus a word ---------- */
-  var LABEL = { todo: "To do", doing: "In progress", done: "Done", late: "Overdue" };
+  var LABEL = { todo: "To do", doing: "In progress", done: "Done", late: "Overdue", soon: "Due soon" };
   function statusKey(a) {
     if (a.status === "done") return "done";
     var d = due(a);
@@ -96,6 +96,7 @@
     if (key === "done") s += '<circle cx="9" cy="9" r="8.5" fill="var(--st-done)"/><path d="M5 9.4l2.6 2.6L13 6.6" fill="none" stroke="var(--paper)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
     else if (key === "late") s += '<path d="M9 1.2L17.2 16.4H0.8Z" fill="var(--st-late)"/><path d="M9 6.5v4.6" stroke="var(--paper)" stroke-width="2.2" stroke-linecap="round"/><circle cx="9" cy="13.6" r="1.2" fill="var(--paper)"/>';
     else if (key === "doing") s += '<circle cx="9" cy="9" r="7.5" fill="none" stroke="var(--st-doing)" stroke-width="2.5"/><path d="M9 1.5a7.5 7.5 0 0 1 0 15z" fill="var(--st-doing)"/>';
+    else if (key === "soon") s += '<circle cx="9" cy="9" r="7.5" fill="none" stroke="var(--st-soon)" stroke-width="2.5"/><path d="M9 4.5V9l3.2 2" fill="none" stroke="var(--st-soon)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
     else s += '<circle cx="9" cy="9" r="7.5" fill="none" stroke="var(--st-todo)" stroke-width="2.5"/>';
     return s + "</svg>";
   }
@@ -124,26 +125,67 @@
     return '<span class="bullet' + (size ? " bullet--" + size : "") + '" style="--c:' + esc(m.color) + ";--t:" + esc(m.textColor || "#fff") + '" aria-hidden="true">' + initial(m.name) + "</span>";
   }
 
+  /* ---------- Google product icons on links (Google's own hosted icons; hidden if they fail to load) ---------- */
+  var GICON_BASE = "https://ssl.gstatic.com/images/branding/product/1x/";
+  var GICONS = { doc: "docs_2020q4_48dp.png", sheet: "sheets_2020q4_48dp.png", slides: "slides_2020q4_48dp.png", form: "forms_2020q4_48dp.png",
+    drive: "drive_2020q4_48dp.png", meet: "meet_2020q4_48dp.png", calendar: "calendar_2020q4_48dp.png" };
+  function gKind(url) {
+    url = String(url || "");
+    if (/docs\.google\.com\/document/.test(url)) return "doc";
+    if (/docs\.google\.com\/spreadsheets/.test(url)) return "sheet";
+    if (/docs\.google\.com\/presentation/.test(url)) return "slides";
+    if (/docs\.google\.com\/forms|forms\.gle/.test(url)) return "form";
+    if (/drive\.google\.com/.test(url)) return "drive";
+    if (/meet\.google\.com/.test(url)) return "meet";
+    if (/calendar\.google\.com/.test(url)) return "calendar";
+    return "";
+  }
+  var TYPE_KIND = { "Google Doc": "doc", "Google Sheet": "sheet", "Google Slides": "slides", "Google Form": "form" };
+  function gIcon(kind, small) {
+    return GICONS[kind] ? '<img class="gicon' + (small ? " gicon--sm" : "") + '" src="' + GICON_BASE + GICONS[kind] + '" alt="" aria-hidden="true" width="20" height="20" onerror="this.remove()">' : "";
+  }
+  function iconFor(url, small) { return gIcon(gKind(url), small); }
+
   /* ---------- data ---------- */
+  /* Network activity: a thin bar under the header plus a spoken status, whenever the hub talks to the Sheet. */
+  var busyCount = 0;
+  function busy(on, msg) {
+    busyCount = Math.max(0, busyCount + (on ? 1 : -1));
+    var bar = document.getElementById("busy"), txt = document.getElementById("busy-text");
+    document.documentElement.classList.toggle("is-busy", busyCount > 0);
+    main.setAttribute("aria-busy", busyCount > 0 ? "true" : "false");
+    if (bar) bar.hidden = busyCount === 0;
+    if (txt) txt.textContent = busyCount > 0 ? (msg || "Saving") : "";
+  }
+  function tracked(promise, msg) {
+    busy(true, msg);
+    return promise.then(function (v) { busy(false); return v; }, function (e) { busy(false); throw e; });
+  }
+  function skeleton(msg) {
+    var card = '<div class="skel skel--card"><span class="skel__dot"></span><span class="skel__lines"><i></i><i></i><i></i></span></div>';
+    return '<div class="wrap" aria-hidden="false"><div class="head"><p class="loading-msg" role="status">' + esc(msg || "Getting the latest from the team Sheet") + '</p><div class="skel skel--h1"></div><div class="skel skel--line"></div></div>' +
+      '<div class="skel skel--bar"></div><div class="signs">' + card + card + card + card + "</div></div>";
+  }
+
   function apiGet() {
     var url = cfg.apiUrl + (cfg.apiUrl.indexOf("?") > -1 ? "&" : "?") + "action=data&code=" + encodeURIComponent(store.get("code") || "");
-    return fetch(url, { method: "GET", redirect: "follow" }).then(function (r) { return r.json(); }).then(function (j) {
+    return tracked(fetch(url, { method: "GET", redirect: "follow" }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j.ok) { var e = new Error(j.error || "The server said no."); e.code = j.code; throw e; }
       return j.data;
-    });
+    }), "Loading");
   }
   function apiPost(body) {
     if (state.demo) return Promise.resolve({ ok: true, demo: true });
     body.code = store.get("code") || "";
     body.pmCode = store.get("pmCode") || "";
     body.who = store.get("me") || "";
-    return fetch(cfg.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+    return tracked(fetch(cfg.apiUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
-      .then(function (j) { if (!j.ok) { var e = new Error(j.error || "The change wasn't saved."); e.code = j.code; throw e; } return j; });
+      .then(function (j) { if (!j.ok) { var e = new Error(j.error || "The change wasn't saved."); e.code = j.code; throw e; } return j; }), "Saving");
   }
   function load() {
     var p = state.demo
-      ? fetch("data/demo.json").then(function (r) { return r.json(); })
+      ? tracked(fetch("data/demo.json").then(function (r) { return r.json(); }), "Loading")
       : apiGet();
     return p.then(function (d) {
       d.members = d.members || []; d.projects = d.projects || []; d.assignments = d.assignments || [];
@@ -164,13 +206,13 @@
 
   /* ---------- views ---------- */
   function counts(list) {
-    var now = new Date(), week = new Date(now.getTime() + 7 * DAY), c = { late: 0, week: 0, doing: 0, done: 0, open: 0 };
+    var now = new Date(), week = new Date(now.getTime() + 7 * DAY), soon = new Date(now.getTime() + 2 * DAY), c = { late: 0, soon: 0, week: 0, doing: 0, done: 0, open: 0 };
     list.forEach(function (a) {
       var k = statusKey(a), d = due(a);
       if (k === "done") { c.done++; return; }
       c.open++;
       if (k === "late") c.late++;
-      else if (d && d <= week) c.week++;
+      else if (d && d <= week) { c.week++; if (d <= soon) c.soon++; }
       if (a.status === "doing") c.doing++;
     });
     return c;
@@ -181,6 +223,27 @@
     return da - db;
   }
   function mine(id) { return state.data.assignments.filter(function (a) { return a.memberId === id; }).sort(sortByDue); }
+
+  /* Semester clock next to work done, so the team can see whether work is keeping pace with time. */
+  function progressHtml() {
+    var startDay = cfg.semesterStart || "2026-08-26", endDay = cfg.semesterEnd || "2026-12-18";
+    var s = new Date(zonedIso(startDay, "00:00")), e = new Date(zonedIso(endDay, "23:59")), now = new Date();
+    var pct = Math.max(0, Math.min(100, Math.round(100 * (now - s) / (e - s))));
+    var elapsed = dayNumber(now) - dayNumber(s), total = dayNumber(e) - dayNumber(s) + 1;
+    var week = Math.max(1, Math.min(Math.ceil(total / 7), Math.floor(elapsed / 7) + 1)), weeks = Math.ceil(total / 7);
+    var left = Math.max(0, dayNumber(e) - dayNumber(now));
+    var all = state.data.assignments, done = all.filter(function (a) { return a.status === "done"; }).length;
+    var wpct = all.length ? Math.round(100 * done / all.length) : 0;
+    function meter(id, label, value, meta, cls) {
+      return '<div class="meter ' + cls + '"><p class="meter__label" id="' + id + '"><b>' + value + "%</b> " + label + '</p>' +
+        '<div class="meter__bar" role="progressbar" aria-labelledby="' + id + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + value + '"><i style="width:' + value + '%"></i></div>' +
+        '<p class="meter__meta">' + meta + "</p></div>";
+    }
+    return '<section class="semester" aria-labelledby="prog-h"><h2 id="prog-h" class="semester__h">Fall 2026 semester</h2><div class="semester__grid">' +
+      meter("prog-time", "of the semester has gone by", pct, (now < s ? "Starts " + esc(fmtDay(s)) : now > e ? "The semester is over" : "Week " + week + " of " + weeks + ", " + left + (left === 1 ? " day" : " days") + " left. Ends " + esc(fmtDay(e)) + "."), "meter--time") +
+      meter("prog-work", "of the team's assignments are done", wpct, done + " of " + all.length + " done", "meter--work") +
+      "</div></section>";
+  }
 
   function viewHome() {
     var me = store.get("me");
@@ -212,7 +275,7 @@
     }).join("");
 
     return '<div class="wrap"><div class="head"><h1 tabindex="-1">Team assignments</h1><p>Pick your name to see what you need to do and when it is due.</p></div>' +
-      nextMeetingStrip() + route + '<section aria-labelledby="signs-h"><h2 id="signs-h" class="sr">Team members</h2><div class="signs">' + signs + "</div></section></div>";
+      nextMeetingStrip() + progressHtml() + route + '<section aria-labelledby="signs-h"><h2 id="signs-h" class="sr">Team members</h2><div class="signs">' + signs + "</div></section></div>";
   }
 
   function rowHtml(a, showWho, hideProject) {
@@ -295,7 +358,7 @@
     while ((m = LINK_RE.exec(text))) {
       out += esc(text.slice(last, m.index));
       var url = m[2] || m[3], label = m[1] || shortUrl(url);
-      out += '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(label) + '<span class="sr"> (opens in a new tab)</span></a>';
+      out += '<a class="ilink" href="' + esc(url) + '" target="_blank" rel="noopener">' + iconFor(url, true) + esc(label) + '<span class="sr"> (opens in a new tab)</span></a>';
       last = LINK_RE.lastIndex;
     }
     return out + esc(text.slice(last));
@@ -348,9 +411,9 @@
       '<h1 tabindex="-1">' + esc(a.title) + '</h1><p class="detail__project">' + (byId(state.data.projects, a.projectId) ? '<a href="#/p/' + esc(p.id) + '">' + esc(p.name) + "</a>" : esc(p.name)) + projLink + "</p></div>" +
       '<div class="due-block"><div class="due-block__when"><p class="due-block__label">Due</p><p class="due-block__date">' + (d ? esc(fmtDay(d)) + "<br>" + esc(fmtTime(d)) : "No due date") + '</p><p class="due-block__rel">' + esc(relDue(d, k === "done")) + '</p></div><div class="due-block__status">' + badge(a) + "</div></div>" +
       "<h2>What to do</h2>" + instructionsHtml(a.instructions) +
-      '<div class="actions">' + (link ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(a.linkLabel || "Open the document") + '<span class="sr"> (opens in a new tab)</span></a>' : "") +
+      '<div class="actions">' + (link ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">' + iconFor(link) + esc(a.linkLabel || "Open the document") + '<span class="sr"> (opens in a new tab)</span></a>' : "") +
       (meetFor(a) ? '<a class="btn" href="#/mt/' + esc(meetFor(a).id) + '">Go to the meeting page</a>' : "") +
-      (d ? '<a class="btn" href="' + esc(calendarUrl(a)) + '" target="_blank" rel="noopener">Add to Google Calendar<span class="sr"> (opens in a new tab)</span></a>' : "") + "</div>" +
+      (d ? '<a class="btn" href="' + esc(calendarUrl(a)) + '" target="_blank" rel="noopener">' + gIcon("calendar") + 'Add to Google Calendar<span class="sr"> (opens in a new tab)</span></a>' : "") + "</div>" +
       '<fieldset class="picker"><legend>Your progress</legend><div class="picker__opts" data-status-for="' + esc(a.id) + '">' + opts + "</div></fieldset>" + updated +
       (others.length ? "<h2>Others on this project</h2><ul class=\"teammates\">" + others.map(function (o) {
         var om = member(o.memberId);
@@ -373,8 +436,8 @@
       "<h2>About this</h2>" + richText(p.description, "No description yet.") +
       '<div class="actions">' +
       (course ? '<a class="btn btn--solid" href="' + esc(course) + '" target="_blank" rel="noopener">Open on bCourses<span class="sr"> (opens in a new tab)</span></a>' : "") +
-      (doc ? '<a class="btn' + (course ? "" : " btn--solid") + '" href="' + esc(doc) + '" target="_blank" rel="noopener">Open the project doc<span class="sr"> (opens in a new tab)</span></a>' : "") +
-      (d ? '<a class="btn" href="' + esc(calendarUrl(p)) + '" target="_blank" rel="noopener">Add to Google Calendar<span class="sr"> (opens in a new tab)</span></a>' : "") + "</div>" +
+      (doc ? '<a class="btn' + (course ? "" : " btn--solid") + '" href="' + esc(doc) + '" target="_blank" rel="noopener">' + iconFor(doc) + (gKind(doc) === "slides" ? "Open the slides" : gKind(doc) === "sheet" ? "Open the sheet" : "Open the project doc") + '<span class="sr"> (opens in a new tab)</span></a>' : "") +
+      (d ? '<a class="btn" href="' + esc(calendarUrl(p)) + '" target="_blank" rel="noopener">' + gIcon("calendar") + 'Add to Google Calendar<span class="sr"> (opens in a new tab)</span></a>' : "") + "</div>" +
       (d || isClient(p) ? '<div class="submit-bar"><p>' + (k === "done" ? "Marked " + doneWord(p).toLowerCase() + ". If that was a mistake, undo it." : isClient(p) ? "Once " + esc(CLIENT) + " has it, mark it delivered so it drops off everyone's list." : "Once the team has turned this in, mark it submitted so it drops off everyone's list.") + '</p><button type="button" class="btn" data-act="project-status" data-id="' + esc(p.id) + '">' + (k === "done" ? "Undo " + doneWord(p).toLowerCase() : "Mark as " + doneWord(p).toLowerCase()) + "</button></div>" : "") +
       "<h2>Who is doing what</h2>" + who +
       '<div class="actions"><button type="button" class="btn" data-act="new-assignment" data-project="' + esc(p.id) + '">Add an assignment</button><button type="button" class="btn btn--quiet" data-act="edit-project" data-id="' + esc(p.id) + '">Edit project</button></div>' +
@@ -442,7 +505,8 @@
       (store.get("pmCode") ? '<button type="button" class="btn btn--quiet" data-act="forget-pm">Forget the project manager code on this device</button>' : "") + "</div></section>";
 
     return '<div class="wrap"><div class="head"><h1 tabindex="-1">Project view</h1><p>Everything the team owes, by project. Anyone can look. Adding or changing assignments needs the project manager code.</p></div>' +
-      '<div class="stats">' +
+      '<div class="stats stats--5">' +
+      '<div class="stat"><b>' + c.soon + '</b><span>' + shape("soon") + "Due soon</span></div>" +
       '<div class="stat"><b>' + c.late + '</b><span>' + shape("late") + "Overdue</span></div>" +
       '<div class="stat"><b>' + c.week + '</b><span>' + shape("todo") + "Due in 7 days</span></div>" +
       '<div class="stat"><b>' + c.doing + '</b><span>' + shape("doing") + "In progress</span></div>" +
@@ -462,13 +526,13 @@
       body = '<div class="field" style="max-width:28rem;margin-bottom:16px"><label for="file-q">Search files</label><input id="file-q" type="search" autocomplete="off"></div>' +
         Object.keys(groups).sort(function (a, b) { return a === "Top level" ? -1 : b === "Top level" ? 1 : a.localeCompare(b); }).map(function (g) {
           return '<section class="section file-group"><h2>' + esc(g) + '</h2><ul class="files">' + groups[g].map(function (fl) {
-            return '<li data-name="' + esc(String(fl.name).toLowerCase()) + '"><a href="' + esc(safeUrl(fl.url)) + '" target="_blank" rel="noopener"><span class="files__name">' + esc(fl.name) +
+            return '<li data-name="' + esc(String(fl.name).toLowerCase()) + '"><a href="' + esc(safeUrl(fl.url)) + '" target="_blank" rel="noopener"><span class="files__name">' + gIcon(TYPE_KIND[fl.type] || gKind(fl.url), true) + esc(fl.name) +
               '</span><span class="files__meta">' + esc(fl.type || "") + (fl.modified ? ", edited " + esc(fmtDay(new Date(fl.modified))) : "") + "</span></a></li>";
           }).join("") + "</ul></section>";
         }).join("");
     }
     return '<div class="wrap"><div class="head"><h1 tabindex="-1">Team files</h1><p>Everything in the Quito Irrigation Project folder in Google Drive.</p>' +
-      (folder ? '<div class="actions"><a class="btn btn--solid" href="' + esc(folder) + '" target="_blank" rel="noopener">Open the folder in Drive<span class="sr"> (opens in a new tab)</span></a></div>' : "") + "</div>" + body + "</div>";
+      (folder ? '<div class="actions"><a class="btn btn--solid" href="' + esc(folder) + '" target="_blank" rel="noopener">' + gIcon("drive") + 'Open the folder in Drive<span class="sr"> (opens in a new tab)</span></a></div>' : "") + "</div>" + body + "</div>";
   }
 
   /* ---------- meetings ---------- */
@@ -514,8 +578,8 @@
       '<p class="due-block__label" id="meet-h">' + esc(heading) + "</p>" +
       '<p class="meet__date">' + esc(fmtDay(s)) + '</p><p class="meet__time">' + esc(meetTime(m)) + '</p><p class="meet__rel">' + esc(meetRel(m)) + "</p></div>" +
       '<div class="meet__side"><div class="actions" style="margin-top:0">' +
-      (link && !past ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">Join Google Meet<span class="sr"> (opens in a new tab)</span></a>' : "") +
-      (doc ? '<a class="btn' + (link && !past ? "" : " btn--solid") + '" href="' + esc(doc) + '" target="_blank" rel="noopener">' + (past ? "Open the notes" : "Open the agenda and notes") + '<span class="sr"> (opens in a new tab)</span></a>' : "") +
+      (link && !past ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">' + gIcon("meet") + 'Join Google Meet<span class="sr"> (opens in a new tab)</span></a>' : "") +
+      (doc ? '<a class="btn' + (link && !past ? "" : " btn--solid") + '" href="' + esc(doc) + '" target="_blank" rel="noopener">' + iconFor(doc) + (past ? "Open the notes" : "Open the agenda and notes") + '<span class="sr"> (opens in a new tab)</span></a>' : "") +
       "</div>" +
       '<ul class="roles"><li>' + bullet(lead, "sm") + "<span><b>" + esc(first(lead.name)) + "</b> leads and sends the agenda</span></li>" +
       "<li>" + bullet(notes, "sm") + "<span><b>" + esc(first(notes.name)) + "</b> takes notes</span></li></ul></div></section>";
@@ -533,7 +597,7 @@
     if (!past) {
       var lead = member(LEAD);
       html += '<div class="lead-box"><h3>' + esc(first(lead.name)) + "'s steps as meeting lead</h3><ol class=\"steps\">" +
-        "<li>" + (m.docUrl ? '<a href="' + esc(m.docUrl) + '" target="_blank" rel="noopener">Open the meeting doc<span class="sr"> (opens in a new tab)</span></a>. The date, Meet link and next meeting are already filled in.' : "Wait for the meeting doc. The hub makes it about a week before, with the date and Meet link filled in.") + "</li>" +
+        "<li>" + (m.docUrl ? '<a class="ilink" href="' + esc(m.docUrl) + '" target="_blank" rel="noopener">' + iconFor(m.docUrl, true) + 'Open the meeting doc<span class="sr"> (opens in a new tab)</span></a>. The date, Meet link and next meeting are already filled in.' : "Wait for the meeting doc. The hub makes it about a week before, with the date and Meet link filled in.") + "</li>" +
         "<li>In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes. Move in any topics the team suggested below.</li>" +
         "<li>Come back here and share the agenda. It emails everyone the list and the Meet link, and ticks off your agenda assignment.</li></ol>" +
         '<div class="actions"><button type="button" class="btn ' + (m.agendaSharedAt ? "" : "btn--solid") + '" data-act="share-agenda" data-id="' + esc(m.id) + '"' + (m.docUrl ? "" : " disabled") + ">" + (m.agendaSharedAt ? "Share the agenda again" : "Share the agenda") + "</button></div></div>";
@@ -577,7 +641,7 @@
     var m = nextMeeting(); if (!m) return "";
     var link = safeUrl(m.meetLink), s = new Date(m.start);
     return '<section class="next-meet" aria-label="Next meeting"><p><span class="next-meet__label">Next meeting</span> <a href="#/mt/' + esc(m.id) + '"><b>' + esc(fmtDay(s)) + ", " + esc(fmtTime(s)) + "</b></a> <span class=\"next-meet__rel\">" + esc(meetRel(m)) + "</span></p>" +
-      '<div class="actions" style="margin-top:0">' + (link ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">Join Google Meet<span class="sr"> (opens in a new tab)</span></a>' : "") +
+      '<div class="actions" style="margin-top:0">' + (link ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">' + gIcon("meet") + 'Join Google Meet<span class="sr"> (opens in a new tab)</span></a>' : "") +
       '<a class="btn" href="#/mt/' + esc(m.id) + '">Agenda and topics</a></div></section>';
   }
 
@@ -741,10 +805,12 @@
       var fd = new FormData(form), vals = {};
       fd.forEach(function (v, k) { if (vals[k] !== undefined) { vals[k] = [].concat(vals[k], v); } else { vals[k] = v; } });
       if (vals.pmCode) store.set("pmCode", vals.pmCode);
-      var btn = form.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
-      Promise.resolve(onSubmit(vals, dlg)).then(function (ok) { if (ok !== false) close(); else if (btn) btn.disabled = false; })
+      var btn = form.querySelector('[type="submit"]'), btnText = btn ? btn.textContent : "";
+      var reset = function () { if (btn) { btn.disabled = false; btn.classList.remove("is-working"); btn.textContent = btnText; } };
+      if (btn) { btn.disabled = true; btn.classList.add("is-working"); btn.textContent = state.demo ? btnText : "Working on it"; }
+      Promise.resolve(onSubmit(vals, dlg)).then(function (ok) { if (ok !== false) close(); else reset(); })
         .catch(function (e) {
-          if (btn) btn.disabled = false;
+          reset();
           if (e && e.code === "pm") store.del("pmCode");
           var err = form.querySelector(".error") || document.createElement("p");
           err.className = "error"; err.setAttribute("role", "alert"); err.textContent = "Not saved: " + (e && e.message ? e.message : "try again.");
@@ -916,6 +982,7 @@
 
   function start() {
     if (!state.demo && !store.get("code")) { main.innerHTML = viewGate(""); return; }
+    main.innerHTML = skeleton();
     load().then(route).catch(function (e) {
       if (e.code === "team") { store.del("code"); main.innerHTML = viewGate("That code didn't work. Check the code Gregor shared and try again."); return; }
       main.innerHTML = '<div class="wrap"><div class="head"><h1 tabindex="-1">Couldn\'t load assignments</h1><p>' + esc(e.message || "The server didn't respond.") + ' Check your connection, then reload the page.</p><div class="actions"><button class="btn btn--solid" type="button" onclick="location.reload()">Reload</button></div></div></div>';

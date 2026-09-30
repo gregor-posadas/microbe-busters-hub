@@ -31,9 +31,11 @@
     <button type="button" class="theme-toggle" id="theme-toggle">Light mode</button>
   </div>
 </header>
+<div id="busy" class="busy" hidden><span class="busy__bar"></span></div>
+<p id="busy-text" class="sr" role="status" aria-live="polite"></p>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-<main id="main" tabindex="-1">
-  <p class="loading">Loading assignments</p>
+<main id="main" tabindex="-1" aria-busy="true">
+  <div class="wrap"><div class="head"><p class="loading-msg" role="status">Getting the latest from the team Sheet</p><div class="skel skel--h1"></div><div class="skel skel--line"></div></div><div class="skel skel--bar"></div></div>
 </main>
 <footer class="foot">
   <p id="foot-status"></p>

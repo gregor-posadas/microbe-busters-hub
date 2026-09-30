@@ -5,5 +5,8 @@ window.MB_CONFIG = {
   timeZone: "America/Los_Angeles",
   driveFolderUrl: "https://drive.google.com/drive/folders/111V21adIMD5Vjv86bWAcW2S52mSYr8FY",
   pmMemberId: "gregor",
-  clientName: "Christopher"
+  clientName: "Christopher",
+  // Fall 2026 at Berkeley: instruction begins Aug 26, the semester ends Dec 18 (registrar's academic calendar)
+  semesterStart: "2026-08-26",
+  semesterEnd: "2026-12-18"
 };
