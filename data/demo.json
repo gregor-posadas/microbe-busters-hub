@@ -6,7 +6,8 @@
    "email": "",
    "role": "Client contact",
    "color": "#385F96",
-   "textColor": "#FFFFFF"
+   "textColor": "#FFFFFF",
+   "emailPref": "daily"
   },
   {
    "id": "gregor",
@@ -14,7 +15,8 @@
    "email": "",
    "role": "Project manager",
    "color": "#800000",
-   "textColor": "#FFFFFF"
+   "textColor": "#FFFFFF",
+   "emailPref": "daily"
   },
   {
    "id": "leakey",
@@ -22,7 +24,8 @@
    "email": "",
    "role": "Note-taker",
    "color": "#CF5921",
-   "textColor": "#000000"
+   "textColor": "#000000",
+   "emailPref": "daily"
   },
   {
    "id": "mary",
@@ -30,7 +33,8 @@
    "email": "",
    "role": "Meeting lead",
    "color": "#E7B800",
-   "textColor": "#000000"
+   "textColor": "#000000",
+   "emailPref": "daily"
   }
  ],
  "projects": [
@@ -75,11 +79,21 @@
    "calendarEventId": ""
   },
   {
+   "id": "update",
+   "name": "Project update presentation",
+   "due": "2026-10-23T09:00:00-07:00",
+   "link": "",
+   "description": "Five-minute project update in class, at 9 AM. One deck for the whole team.\n- The Oct 9 assignment asks us to use this update to share what we learned from user discovery and what got in the way.\n- Plan on one slide per person, about a minute each, and present your own slide.\n- Build it in the project update slides.\nDetails may be posted on bCourses. Check the [assignments list](https://bcourses.berkeley.edu/courses/1556923/assignments).",
+   "courseLink": "",
+   "status": "",
+   "calendarEventId": ""
+  },
+  {
    "id": "final",
    "name": "Final presentation",
    "due": "2026-12-04T09:00:00-08:00",
    "link": "",
-   "description": "Final presentation of our project to the class, at 9 AM.\nDetails will be posted on bCourses. Check the [assignments list](https://bcourses.berkeley.edu/courses/1556923/assignments).",
+   "description": "Final presentation of our project to the class, at 9 AM.\nDetails will be posted on bCourses. Check the [assignments list](https://bcourses.berkeley.edu/courses/1556923/assignments).\nBuild it in the final presentation slides.",
    "courseLink": "",
    "status": "",
    "calendarEventId": ""
@@ -118,7 +132,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "dp-leakey-cd",
@@ -132,7 +147,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "dp-gregor-1ab",
@@ -146,7 +162,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "dp-leakey-form",
@@ -160,7 +177,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "dp-mary",
@@ -174,7 +192,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "dp-gregor-final",
@@ -188,7 +207,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "dp-leakey-submit",
@@ -202,7 +222,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "g-gregor",
@@ -216,7 +237,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "g-leakey",
@@ -230,7 +252,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "g-mary",
@@ -244,7 +267,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "g-ben",
@@ -258,7 +282,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "o-ben-mark",
@@ -272,7 +297,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "o-ben-gabriel",
@@ -286,7 +312,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "o-gregor-miller",
@@ -300,7 +327,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "c-leakey-log",
@@ -314,7 +342,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "c-ben-send",
@@ -328,7 +357,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "c-gregor-send",
@@ -342,7 +372,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "c-mary-learnings",
@@ -356,7 +387,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "c-leakey-submit",
@@ -370,7 +402,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-ben-boxes",
@@ -384,7 +417,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-mary-boxes",
@@ -398,7 +432,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-leakey-boxes",
@@ -412,7 +447,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-gregor-boxes",
@@ -426,7 +462,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-mary-mural",
@@ -440,7 +477,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-gregor-writeup",
@@ -454,7 +492,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-leakey-review",
@@ -468,7 +507,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "b-ben-submit",
@@ -482,7 +522,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "f-gregor-plan",
@@ -496,21 +537,83 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
+  },
+  {
+   "id": "u-ben-slide",
+   "projectId": "update",
+   "memberId": "ben",
+   "title": "Draft the partner and problem slide for the project update",
+   "instructions": "- One slide: who our partner is, the irrigation water problem near Quito, and what we were asked to do.\n- Keep it to about a minute when spoken. Put your talking points in the speaker notes.",
+   "due": "2026-10-20T23:59:00-07:00",
+   "link": "",
+   "linkLabel": "",
+   "status": "todo",
+   "updatedAt": "",
+   "updatedBy": "",
+   "calendarEventId": "",
+   "assignedAt": ""
+  },
+  {
+   "id": "u-mary-slide",
+   "projectId": "update",
+   "memberId": "mary",
+   "title": "Draft the user discovery slide for the project update",
+   "instructions": "- One slide: what we learned from user discovery and what got in the way. The class asks for both.\n- Pull from the learnings doc you drafted for the Oct 9 assignment.\n- Keep it to about a minute when spoken. Put your talking points in the speaker notes.",
+   "due": "2026-10-20T23:59:00-07:00",
+   "link": "",
+   "linkLabel": "",
+   "status": "todo",
+   "updatedAt": "",
+   "updatedBy": "",
+   "calendarEventId": "",
+   "assignedAt": ""
+  },
+  {
+   "id": "u-leakey-slide",
+   "projectId": "update",
+   "memberId": "leakey",
+   "title": "Draft the farmer guide progress slide for the project update",
+   "instructions": "- One slide: what the farmer guide will cover and the most useful sources we have found so far.\n- Keep it to about a minute when spoken. Put your talking points in the speaker notes.",
+   "due": "2026-10-20T23:59:00-07:00",
+   "link": "",
+   "linkLabel": "",
+   "status": "todo",
+   "updatedAt": "",
+   "updatedBy": "",
+   "calendarEventId": "",
+   "assignedAt": ""
+  },
+  {
+   "id": "u-gregor-deck",
+   "projectId": "update",
+   "memberId": "gregor",
+   "title": "Add the next steps slide and pull the deck together",
+   "instructions": "- Add a next steps slide: the business model (Nov 6), guide drafts (Nov 6) and the community event (Nov 13).\n- Make the slides look consistent and put them in order.\n- Time a run-through with the team so the whole update fits in 5 minutes.",
+   "due": "2026-10-22T12:00:00-07:00",
+   "link": "",
+   "linkLabel": "",
+   "status": "todo",
+   "updatedAt": "",
+   "updatedBy": "",
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "m-2026-10-07-agenda",
    "projectId": "meetings",
    "memberId": "mary",
-   "title": "Post the agenda for the Oct 7 meeting",
-   "instructions": "- Open the meeting doc. The date, Meet link and next meeting are already filled in.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- Move any topics under Suggested by the team into the agenda, or leave them for a later week.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
+   "title": "Prep and share the agenda for the Oct 7 meeting",
+   "instructions": "- Open the meeting doc. The date, Meet link and next meeting are already filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-10-06T21:00:00-07:00",
    "link": "",
    "linkLabel": "",
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   },
   {
    "id": "m-2026-10-07-notes",
@@ -524,7 +627,8 @@
    "status": "todo",
    "updatedAt": "",
    "updatedBy": "",
-   "calendarEventId": ""
+   "calendarEventId": "",
+   "assignedAt": ""
   }
  ],
  "milestones": [
@@ -539,6 +643,12 @@
    "label": "User discovery done",
    "dateLabel": "",
    "projectId": "conduct"
+  },
+  {
+   "date": "2026-10-23T09:00:00-07:00",
+   "label": "Project update talk",
+   "dateLabel": "",
+   "projectId": "update"
   },
   {
    "date": "2026-11-06T09:00:00-08:00",

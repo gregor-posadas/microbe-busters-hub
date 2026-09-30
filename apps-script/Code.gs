@@ -16,9 +16,9 @@
 
 var TZ = 'America/Los_Angeles';
 var TABS = {
-  Members: ['id', 'name', 'email', 'role', 'color', 'textColor'],
+  Members: ['id', 'name', 'email', 'role', 'color', 'textColor', 'emailPref'],
   Projects: ['id', 'name', 'due', 'link', 'description', 'courseLink', 'status', 'calendarEventId'],
-  Assignments: ['id', 'projectId', 'memberId', 'title', 'instructions', 'due', 'link', 'linkLabel', 'status', 'updatedAt', 'updatedBy', 'calendarEventId'],
+  Assignments: ['id', 'projectId', 'memberId', 'title', 'instructions', 'due', 'link', 'linkLabel', 'status', 'updatedAt', 'updatedBy', 'calendarEventId', 'assignedAt'],
   Milestones: ['date', 'label', 'dateLabel', 'projectId'],
   Meetings: ['id', 'start', 'end', 'title', 'meetLink', 'docUrl', 'agendaSharedAt', 'agendaSharedBy', 'eventId'],
   Topics: ['id', 'meetingId', 'text', 'memberId', 'createdAt'],
@@ -40,8 +40,9 @@ var MEETING_DEFAULTS = {
 // Keep these in step with MEET_AGENDA_STEPS and MEET_NOTES_STEPS in tools/seed.py.
 var MEETING_STEPS = {
   agenda: '- Open the meeting doc. The date, Meet link and next meeting are already filled in.\n' +
+    '- Prep: skim last meeting\'s notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n' +
+    '- Look at the topics the team suggested under Suggested by the team.\n' +
     '- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n' +
-    '- Move any topics under Suggested by the team into the agenda, or leave them for a later week.\n' +
     '- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.',
   notes: '- During the meeting, take notes in the meeting doc under Discussion points, Decisions and Action items.\n' +
     '- Within 24 hours, merge the Meetily summary and give every action item an owner and a due date.\n' +
@@ -154,6 +155,9 @@ function doPost(e) {
       case 'setProjectStatus':
         checkCode(b.code, 'team');
         return json(setProjectStatus(b.id, b.status, who));
+      case 'setEmailPref':
+        checkCode(b.code, 'team');
+        return json(setEmailPref(b.memberId, b.pref));
       case 'addTopic':
         checkCode(b.code, 'team');
         return json(addTopic(b.meetingId, b.text, who));
@@ -239,7 +243,7 @@ function log(who, action, detail) {
 
 function payload() {
   var members = readTable('Members').map(function (m) {
-    return { id: m.id, name: m.name, email: m.email, role: m.role, color: m.color, textColor: m.textColor };
+    return { id: m.id, name: m.name, email: m.email, role: m.role, color: m.color, textColor: m.textColor, emailPref: m.emailPref || 'daily' };
   });
   return {
     members: members,
@@ -284,7 +288,8 @@ function saveAssignments(list, who) {
       status: existing ? existing.status : (STATUSES.indexOf(input.status) > -1 ? input.status : 'todo'),
       updatedAt: cell(new Date()),
       updatedBy: who,
-      calendarEventId: existing ? existing.calendarEventId : ''
+      calendarEventId: existing ? existing.calendarEventId : '',
+      assignedAt: existing && existing.memberId === input.memberId && existing.assignedAt ? existing.assignedAt : cell(new Date())
     };
     // A new person or a new due date means a fresh invite.
     if (existing && existing.memberId !== a.memberId) { removeEvent(existing.calendarEventId); a.calendarEventId = ''; }
@@ -375,7 +380,7 @@ function syncCalendar(a) {
     if (member.email && !ev.getGuestByEmail(member.email)) ev.addGuest(member.email);
     return ev.getId();
   }
-  ev = cal.createEvent(title, start, end, { description: description, guests: member.email || '', sendInvites: true });
+  ev = cal.createEvent(title, start, end, { description: description, guests: member.email || '', sendInvites: false });
   ev.addPopupReminder(24 * 60);
   ev.addPopupReminder(60);
   return ev.getId();
@@ -399,7 +404,7 @@ function syncProjectCalendar(p) {
     emails.forEach(function (em) { if (!ev.getGuestByEmail(em)) ev.addGuest(em); });
     return ev.getId();
   }
-  ev = cal.createEvent(title, start, end, { description: description, guests: emails.join(','), sendInvites: true });
+  ev = cal.createEvent(title, start, end, { description: description, guests: emails.join(','), sendInvites: false });
   ev.addPopupReminder(24 * 60);
   ev.addPopupReminder(60);
   return ev.getId();
@@ -502,13 +507,13 @@ function prepareMeeting(m, prev, next) {
   // The two recurring jobs, as assignments with the doc attached.
   var label = Utilities.formatDate(start, TZ, 'MMM d');
   var jobs = [
-    { id: 'm-' + m.id + '-agenda', memberId: setting('MEETING_LEAD'), title: 'Post the agenda for the ' + label + ' meeting', due: cell(agendaDue), instructions: MEETING_STEPS.agenda },
+    { id: 'm-' + m.id + '-agenda', memberId: setting('MEETING_LEAD'), title: 'Prep and share the agenda for the ' + label + ' meeting', due: cell(agendaDue), instructions: MEETING_STEPS.agenda },
     { id: 'm-' + m.id + '-notes', memberId: setting('NOTE_TAKER'), title: 'Take notes at the ' + label + ' meeting', due: atTime(new Date(start.getTime() + 86400000), '12:00'), instructions: MEETING_STEPS.notes }
   ];
   jobs.forEach(function (j) {
     if (findAssignment(j.id, true)) return;
     var a = { id: j.id, projectId: 'meetings', memberId: j.memberId, title: j.title, instructions: j.instructions, due: j.due,
-      link: m.docUrl, linkLabel: 'Open the meeting doc', status: 'todo', updatedAt: cell(new Date()), updatedBy: 'hub', calendarEventId: '' };
+      link: m.docUrl, linkLabel: 'Open the meeting doc', status: 'todo', updatedAt: cell(new Date()), updatedBy: 'hub', calendarEventId: '', assignedAt: cell(new Date()) };
     a.calendarEventId = syncCalendar(a);
     writeRow('Assignments', a);
   });
@@ -567,14 +572,26 @@ function addTopic(meetingId, text, who) {
 
 function addTopicToDoc(docUrl, line) {
   var doc = DocumentApp.openByUrl(docUrl), body = doc.getBody();
-  var found = body.findText('Suggested by the team');
-  if (!found) { body.appendListItem(line).setGlyphType(DocumentApp.GlyphType.BULLET); doc.saveAndClose(); return; }
-  var heading = found.getElement().getParent();
-  var i = body.getChildIndex(heading) + 1, last = null;
+  // Find the "Suggested by the team" heading itself (the phrase also appears in the agenda's intro sentence).
+  var headingIndex = -1;
+  for (var k = 0; k < body.getNumChildren(); k++) {
+    var el = body.getChild(k);
+    if (el.getType() === DocumentApp.ElementType.PARAGRAPH && el.asParagraph().getHeading() !== DocumentApp.ParagraphHeading.NORMAL &&
+        el.asParagraph().getText().trim() === 'Suggested by the team') { headingIndex = k; break; }
+  }
+  if (headingIndex < 0) { body.appendListItem(line).setGlyphType(DocumentApp.GlyphType.BULLET); doc.saveAndClose(); return; }
+  var i = headingIndex + 1, last = null;
   while (i < body.getNumChildren() && body.getChild(i).getType() === DocumentApp.ElementType.LIST_ITEM) { last = body.getChild(i).asListItem(); i++; }
-  if (last && last.getText().trim() === 'None yet.') last.setText(line);
-  else if (last) body.insertListItem(i, last.copy().setText(line));
-  else body.insertListItem(i, line).setGlyphType(DocumentApp.GlyphType.BULLET);
+  if (last && last.getText().trim() === 'None yet.') {
+    last.setText(line);
+  } else if (last) {
+    var li = body.insertListItem(i, line);
+    li.setListId(last);
+    li.setNestingLevel(last.getNestingLevel());
+    li.setGlyphType(last.getGlyphType());
+  } else {
+    body.insertListItem(i, line).setGlyphType(DocumentApp.GlyphType.BULLET);
+  }
   doc.saveAndClose();
 }
 
@@ -616,7 +633,7 @@ function shareAgenda(meetingId, includeClient, who) {
     (appUrl ? ' | <a href="' + esc(appUrl + '#/meetings') + '">Suggest a topic in the hub</a>' : '') + '</p>' +
     '<p>' + esc(sender.name ? sender.name.split(' ')[0] : 'The meeting lead') + '</p></div>';
   var subject = 'Agenda: ' + Utilities.formatDate(start, TZ, 'EEE, MMM d') + ' meeting';
-  MailApp.sendEmail({ to: to.join(','), subject: subject, htmlBody: html, body: stripHtml(html), name: 'Microbe Busters Hub', replyTo: sender.email || '' });
+  sendMail(to.join(','), subject, html, sender.email || '');
   m.agendaSharedAt = cell(new Date()); m.agendaSharedBy = who;
   writeRow('Meetings', m);
   var job = findAssignment('m-' + m.id + '-agenda', true);
@@ -675,80 +692,141 @@ function fileType(mime) {
 
 /* ------------------------------------------------------------------ reminders */
 
+/*
+ * Reminder emails, Canvas style but quiet:
+ *  - At most one email per person per day (8 AM), and none on days with nothing to say.
+ *  - Each item links straight to its page in the hub.
+ *  - Overdue items come up the day after they're due, then every third day, not daily.
+ *  - Each person picks Daily (default), Weekly (Monday mornings) or Off on their own page.
+ */
+var EMAIL_PREFS = ['daily', 'weekly', 'off'];
+
 /** Runs every morning at 8 AM (set up by setup()). Returns the number of emails sent. */
 function sendDailyReminders() {
   var props = PropertiesService.getScriptProperties();
   var appUrl = props.getProperty('APP_URL') || '';
   var members = readTable('Members'), assignments = readTable('Assignments');
   var projectList = readTable('Projects'), projects = indexBy(projectList);
-  var now = new Date(), soon = new Date(now.getTime() + 48 * 3600000), week = new Date(now.getTime() + 7 * 86400000);
+  var now = new Date(), DAYMS = 86400000;
+  var lastRun = props.getProperty('LAST_DIGEST') ? new Date(props.getProperty('LAST_DIGEST')) : new Date(now.getTime() - DAYMS);
+  var isMonday = Utilities.formatDate(now, TZ, 'u') === '1';
+  var today = dayNum(now);
   var sent = 0;
-  // Team deadlines (class assignments and the like) that are coming up and not yet submitted.
-  var openProjects = projectList.filter(function (p) { return p.status !== 'done' && p.due; });
-  var teamSoon = openProjects.filter(function (p) { var d = new Date(p.due); return d >= now && d <= soon; });
-  var teamItems = teamSoon.map(function (p) {
-    return '<li style="margin:0 0 14px"><b>' + esc(p.name) + '</b><br>Team deadline: ' + esc(fmt(new Date(p.due))) + '<br>' +
-      (appUrl ? '<a href="' + esc(appUrl + '#/p/' + p.id) + '">Open the details</a>' : '') +
-      (p.courseLink ? (appUrl ? ' | ' : '') + '<a href="' + esc(p.courseLink) + '">Open on bCourses</a>' : '') + '</li>';
-  }).join('');
 
   members.forEach(function (m) {
-    if (!m.email) return;
-    var mine = assignments.filter(function (a) { return a.memberId === m.id && a.status !== 'done' && a.due && new Date(a.due) <= soon; })
-      .sort(function (a, b) { return new Date(a.due) - new Date(b.due); });
-    if (!mine.length && !teamSoon.length) return;
-    var late = mine.filter(function (a) { return new Date(a.due) < now; }).length;
-    var subject = mine.length
-      ? 'Microbe Busters: ' + (late ? late + ' overdue, ' : '') + (mine.length - late) + ' due in the next 2 days'
-      : 'Microbe Busters: team deadline ' + (teamSoon.length === 1 ? 'coming up' : 'coming up (' + teamSoon.length + ')');
-    var items = mine.map(function (a) {
-      var d = new Date(a.due), isLate = d < now;
-      return '<li style="margin:0 0 14px"><b>' + esc(a.title) + '</b><br>' + (isLate ? '<b>Overdue.</b> Was due ' : 'Due ') + esc(fmt(d)) +
-        (projects[a.projectId] ? ', ' + esc(projects[a.projectId].name) : '') + '<br>' +
-        (appUrl ? '<a href="' + esc(appUrl + '#/a/' + a.id) + '">Open the instructions</a>' : '') +
-        (a.link ? (appUrl ? ' | ' : '') + '<a href="' + esc(a.link) + '">' + esc(a.linkLabel || 'Open the document') + '</a>' : '') + '</li>';
-    }).join('');
-    var html = '<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#000">' +
-      '<p>Hi ' + esc(m.name.split(' ')[0]) + ',</p>' +
-      (mine.length ? '<p>Here is what you have coming up:</p><ul style="padding-left:20px">' + items + '</ul>' : '') +
-      (teamSoon.length ? '<p>Whole-team deadline' + (teamSoon.length > 1 ? 's' : '') + ':</p><ul style="padding-left:20px">' + teamItems + '</ul>' : '') +
-      '<p>When you finish something, mark it done in the hub so the team can see it.' + (appUrl ? ' <a href="' + esc(appUrl + '#/m/' + m.id) + '">Your assignments</a>' : '') + '</p></div>';
-    MailApp.sendEmail({ to: m.email, subject: subject, htmlBody: html, body: stripHtml(html), name: 'Microbe Busters Hub' });
+    var pref = EMAIL_PREFS.indexOf(m.emailPref) > -1 ? m.emailPref : 'daily';
+    if (!m.email || pref === 'off' || (pref === 'weekly' && !isMonday)) return;
+    var horizon = new Date(now.getTime() + (pref === 'weekly' ? 7 : 2) * DAYMS);
+    var since = pref === 'weekly' ? new Date(now.getTime() - 7 * DAYMS) : lastRun;
+    var open = assignments.filter(function (a) { return a.memberId === m.id && a.status !== 'done'; });
+    var byDue = function (a, b) { return new Date(a.due) - new Date(b.due); };
+    var overdue = open.filter(function (a) {
+      if (!a.due || new Date(a.due) >= now) return false;
+      var late = today - dayNum(new Date(a.due));
+      return pref === 'weekly' || late <= 1 || late % 3 === 0;
+    }).sort(byDue);
+    var soon = open.filter(function (a) { return a.due && new Date(a.due) >= now && new Date(a.due) <= horizon; }).sort(byDue);
+    var shown = {}; overdue.concat(soon).forEach(function (a) { shown[a.id] = true; });
+    var fresh = open.filter(function (a) { return !shown[a.id] && a.assignedAt && new Date(a.assignedAt) > since && a.updatedBy !== m.id; }).sort(byDue);
+    var team = projectList.filter(function (p) { return p.status !== 'done' && p.due && new Date(p.due) >= now && new Date(p.due) <= horizon; }).sort(byDue);
+    if (!overdue.length && !soon.length && !fresh.length && !team.length) return;
+
+    var item = function (a) {
+      var d = a.due ? new Date(a.due) : null, proj = projects[a.projectId];
+      var when = d ? (d < now ? 'Was due ' : 'Due ') + relDay(d, now) + ' at ' + Utilities.formatDate(d, TZ, 'h:mm a') : 'No due date';
+      return emailItem(appUrl ? appUrl + '#/a/' + a.id : '', a.title, when + (proj ? ', ' + proj.name : ''), a.link, a.linkLabel || 'Open the document');
+    };
+    var teamItem = function (p) {
+      var d = new Date(p.due);
+      return emailItem(appUrl ? appUrl + '#/p/' + p.id : '', p.name, 'Whole team, due ' + relDay(d, now) + ' at ' + Utilities.formatDate(d, TZ, 'h:mm a'), p.courseLink, 'Open on bCourses');
+    };
+    var parts = [];
+    if (overdue.length) parts.push(overdue.length + ' overdue');
+    if (soon.length) parts.push(soon.length + (pref === 'weekly' ? ' due this week' : ' due soon'));
+    if (fresh.length) parts.push(fresh.length + ' new');
+    if (team.length) parts.push(team.length + ' team deadline' + (team.length > 1 ? 's' : ''));
+    var html = emailShell(
+      'Hi ' + m.name.split(' ')[0] + ',',
+      emailSection('Overdue', overdue.map(item)) +
+      emailSection(pref === 'weekly' ? 'Due this week' : 'Due soon', soon.map(item)) +
+      emailSection('New for you', fresh.map(item)) +
+      emailSection('Team deadlines', team.map(teamItem)),
+      appUrl ? '<a href="' + esc(appUrl + '#/m/' + m.id) + '">See all your assignments</a> or <a href="' + esc(appUrl + '#/m/' + m.id + '/email') + '">change how often you get these emails</a>.' : '');
+    sendMail(m.email, 'Microbe Busters: ' + parts.join(', '), html);
     sent++;
   });
 
-  // Project manager summary
+  // Project manager summary, only on days with something in it.
   var pmEmail = props.getProperty('PM_EMAIL');
   if (pmEmail) {
-    var byMember = indexBy(members);
+    var byMember = indexBy(members), week = new Date(now.getTime() + 7 * DAYMS);
     var open = assignments.filter(function (a) { return a.status !== 'done'; });
     var late = open.filter(function (a) { return a.due && new Date(a.due) < now; });
     var upcoming = open.filter(function (a) { return a.due && new Date(a.due) >= now && new Date(a.due) <= week; });
-    var dayAgo = new Date(now.getTime() - 86400000);
-    var doneRecent = assignments.filter(function (a) { return a.status === 'done' && a.updatedAt && new Date(a.updatedAt) >= dayAgo; });
-    var teamWeek = openProjects.filter(function (p) { var d = new Date(p.due); return d <= week; })
-      .sort(function (a, b) { return new Date(a.due) - new Date(b.due); });
+    var doneRecent = assignments.filter(function (a) { return a.status === 'done' && a.updatedAt && new Date(a.updatedAt) >= lastRun; });
+    var teamWeek = projectList.filter(function (p) { return p.status !== 'done' && p.due && new Date(p.due) <= week; });
+    var row = function (a) {
+      return emailItem(appUrl ? appUrl + '#/a/' + a.id : '', ((byMember[a.memberId] || {}).name || a.memberId).split(' ')[0] + ': ' + a.title, a.due ? relDay(new Date(a.due), now) + ' at ' + Utilities.formatDate(new Date(a.due), TZ, 'h:mm a') : '', '', '');
+    };
+    var byDue = function (a, b) { return new Date(a.due) - new Date(b.due); };
     if (late.length || upcoming.length || doneRecent.length || teamWeek.length) {
-      var list = function (arr) {
-        return arr.length ? '<ul style="padding-left:20px">' + arr.sort(function (a, b) { return new Date(a.due) - new Date(b.due); }).map(function (a) {
-          return '<li>' + esc((byMember[a.memberId] || {}).name || a.memberId) + ': ' + esc(a.title) + (a.due ? ' (' + esc(fmt(new Date(a.due))) + ')' : '') + '</li>';
-        }).join('') + '</ul>' : '<p>None.</p>';
-      };
-      var teamHtml = teamWeek.length ? '<ul style="padding-left:20px">' + teamWeek.map(function (p) {
-        var d = new Date(p.due);
-        return '<li>' + esc(p.name) + ' (' + esc(fmt(d)) + (d < now ? ', past due and not marked submitted' : '') + ')</li>';
-      }).join('') + '</ul>' : '<p>None.</p>';
-      var pmHtml = '<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#000">' +
-        '<h3 style="margin:16px 0 4px">Team deadlines in the next 7 days (' + teamWeek.length + ')</h3>' + teamHtml +
-        '<h3 style="margin:16px 0 4px">Overdue (' + late.length + ')</h3>' + list(late) +
-        '<h3 style="margin:16px 0 4px">Due in the next 7 days (' + upcoming.length + ')</h3>' + list(upcoming) +
-        '<h3 style="margin:16px 0 4px">Finished in the last day (' + doneRecent.length + ')</h3>' + list(doneRecent) +
-        (appUrl ? '<p><a href="' + esc(appUrl + '#/pm') + '">Open the project view</a></p>' : '') + '</div>';
-      MailApp.sendEmail({ to: pmEmail, subject: 'Microbe Busters team summary: ' + late.length + ' overdue, ' + upcoming.length + ' due in 7 days', htmlBody: pmHtml, body: stripHtml(pmHtml), name: 'Microbe Busters Hub' });
+      var pmHtml = emailShell('Team summary',
+        emailSection('Team deadlines in the next 7 days', teamWeek.sort(byDue).map(function (p) {
+          var d = new Date(p.due);
+          return emailItem(appUrl ? appUrl + '#/p/' + p.id : '', p.name, relDay(d, now) + (d < now ? ', past due and not marked submitted' : ''), '', '');
+        })) +
+        emailSection('Overdue', late.sort(byDue).map(row)) +
+        emailSection('Due in the next 7 days', upcoming.sort(byDue).map(row)) +
+        emailSection('Finished since the last summary', doneRecent.map(row)),
+        appUrl ? '<a href="' + esc(appUrl + '#/pm') + '">Open the project view</a>' : '');
+      sendMail(pmEmail, 'Microbe Busters team summary: ' + late.length + ' overdue, ' + upcoming.length + ' due in 7 days', pmHtml);
       sent++;
     }
   }
+  props.setProperty('LAST_DIGEST', cell(now));
   return sent;
+}
+
+function dayNum(d) { var s = Utilities.formatDate(d, TZ, 'yyyy-MM-dd').split('-'); return Date.UTC(+s[0], +s[1] - 1, +s[2]) / 86400000; }
+/** "today", "tomorrow", "yesterday", "Fri, Oct 2" */
+function relDay(d, now) {
+  var diff = dayNum(d) - dayNum(now);
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  if (diff === -1) return 'yesterday';
+  return Utilities.formatDate(d, TZ, 'EEE, MMM d');
+}
+function emailItem(href, title, meta, docUrl, docLabel) {
+  return '<li style="margin:0 0 16px">' +
+    (href ? '<a href="' + esc(href) + '" style="color:#000;font-weight:700">' + esc(title) + '</a>' : '<b>' + esc(title) + '</b>') +
+    (meta ? '<br><span style="color:#4d4a43">' + esc(meta) + '</span>' : '') +
+    (docUrl ? '<br><a href="' + esc(docUrl) + '" style="color:#0060a0">' + esc(docLabel) + '</a>' : '') + '</li>';
+}
+function emailSection(title, items) {
+  return items.length ? '<h3 style="font-size:16px;margin:20px 0 8px;border-bottom:2px solid #000;padding-bottom:4px">' + esc(title) + '</h3><ul style="list-style:none;padding:0;margin:0">' + items.join('') + '</ul>' : '';
+}
+function emailShell(greeting, body, footer) {
+  return '<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#000;max-width:560px">' +
+    '<p style="margin:0 0 4px">' + esc(greeting) + '</p>' + body +
+    (footer ? '<p style="margin:24px 0 0;font-size:14px;color:#4d4a43">' + footer + '</p>' : '') + '</div>';
+}
+/** Sends from the university's no-reply address when allowed, so it reads as the hub, not a person. */
+function sendMail(to, subject, html, replyTo) {
+  var msg = { to: to, subject: subject, htmlBody: html, body: stripHtml(html), name: 'Microbe Busters Hub' };
+  if (replyTo) msg.replyTo = replyTo;
+  try { MailApp.sendEmail(Object.assign({ noReply: !replyTo }, msg)); }
+  catch (e) { MailApp.sendEmail(msg); }
+}
+
+/** Anyone can set their own reminder email preference from their page in the hub. */
+function setEmailPref(memberId, pref) {
+  if (EMAIL_PREFS.indexOf(pref) < 0) throw new Error('Pick daily, weekly or off.');
+  var m = indexBy(readTable('Members'))[memberId];
+  if (!m) throw new Error('Unknown team member.');
+  m.emailPref = pref;
+  writeRow('Members', m);
+  log(memberId, 'email setting', pref);
+  return { ok: true, member: { id: m.id, emailPref: pref } };
 }
 
 function fmt(d) { return Utilities.formatDate(d, TZ, 'EEE, MMM d, h:mm a'); }

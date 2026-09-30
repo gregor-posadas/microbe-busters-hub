@@ -219,6 +219,24 @@
       '<span class="row__due"><span class="row__day">' + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "No due date") + '</span><span class="row__rel">' + esc(pRel(p)) + "</span></span></a></li>";
   }
 
+  var EMAIL_OPTS = [["daily", "Daily", "Only on days something is due soon, overdue or new"], ["weekly", "Mondays only", "One email with the whole week"], ["off", "Off", "No reminder emails"]];
+  function emailPrefHtml(m) {
+    var cur = m.emailPref || "daily";
+    return '<section class="section" id="email" aria-labelledby="email-h"><h2 id="email-h" tabindex="-1">Email reminders</h2>' +
+      '<p class="section__note">Reminders come from the hub at 8 AM, at most once a day, and only when there is something to say. Each item in the email links straight to its page here. This setting is for ' + esc(first(m.name)) + " only.</p>" +
+      '<fieldset class="picker picker--email"><legend class="sr">How often ' + esc(first(m.name)) + ' gets reminder emails</legend><div class="picker__opts" data-email-for="' + esc(m.id) + '">' +
+      EMAIL_OPTS.map(function (o) { return '<label><input type="radio" name="emailPref" value="' + o[0] + '"' + (o[0] === cur ? " checked" : "") + '><span><b>' + o[1] + '</b><small>' + o[2] + "</small></span></label>"; }).join("") +
+      "</div></fieldset></section>";
+  }
+  function setEmailPref(memberId, pref) {
+    var m = byId(state.data.members, memberId); if (!m) return;
+    var prev = m.emailPref; m.emailPref = pref;
+    apiPost({ action: "setEmailPref", memberId: memberId, pref: pref }).then(function (r) {
+      var label = EMAIL_OPTS.filter(function (o) { return o[0] === pref; })[0][1];
+      toast("Email reminders: " + label + (r.demo ? " (demo, not saved)" : ""));
+    }).catch(function (e) { m.emailPref = prev; route(); toast("Not saved: " + e.message); });
+  }
+
   function viewMember(id) {
     var m = byId(state.data.members, id);
     if (!m) return notFound("We couldn't find that team member.");
@@ -247,7 +265,7 @@
       : "";
     return '<div class="wrap"><div class="head"><a class="crumb" href="#/">Team</a>' +
       '<div class="detail__who">' + bullet(m, "lg") + '<div><h1 tabindex="-1">' + esc(m.name) + "</h1><p>" + esc(m.role) + "</p></div></div></div>" +
-      sec("late", "Overdue") + sec("week", "Due in the next 7 days", "Nothing due in the next 7 days.") + sec("later", "Later") + sec("none", "No due date") + teamHtml + doneHtml + "</div>";
+      sec("late", "Overdue") + sec("week", "Due in the next 7 days", "Nothing due in the next 7 days.") + sec("later", "Later") + sec("none", "No due date") + teamHtml + doneHtml + emailPrefHtml(m) + "</div>";
   }
 
   /* Plain text from the Sheet to safe HTML. Supports [label](https://...) links,
@@ -384,7 +402,7 @@
     }).join("") + '</ul><div class="actions"><button type="button" class="btn" data-act="new-project">New project</button></div></section>';
 
     var reminders = '<section class="section" aria-labelledby="rem-h"><h2 id="rem-h">Reminders and calendar</h2>' +
-      "<p style=\"margin-top:12px;max-width:var(--read)\">Every morning at 8 AM, anyone with work due in the next 2 days or overdue gets one email listing it. You get a summary of the whole team. Creating an assignment, or changing its due date, sends the person a Google Calendar invite. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
+      "<p style=\"margin-top:12px;max-width:var(--read)\">Every morning at 8 AM, the hub emails each person only if something of theirs is due in the next 2 days, overdue, or newly assigned, with a link to each item. People choose Daily, Mondays only or Off on their own page. You also get a summary of the whole team. Each assignment appears on the person's Google Calendar without an invite email. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
       '<div class="actions"><button type="button" class="btn" data-act="send-reminders"' + (state.demo ? " disabled" : "") + ">Send reminders now</button>" +
       '<button type="button" class="btn" data-act="sync-meetings"' + (state.demo ? " disabled" : "") + ">Refresh meetings from Google Calendar</button>" +
       (store.get("pmCode") ? '<button type="button" class="btn btn--quiet" data-act="forget-pm">Forget the project manager code on this device</button>' : "") + "</div></section>";
@@ -581,7 +599,7 @@
       '<section class="section" aria-labelledby="faq-h"><h2 id="faq-h">Questions</h2>' +
       faq("My assignment is wrong, or something is missing.", "<p>Tell " + esc(pm) + ". Only the project manager can add, change or delete assignments. That keeps one person responsible for the list.</p>") +
       faq("What's the difference between an assignment and a team deadline?", "<p>An assignment is yours: one person, one task, one due date. A team deadline belongs to the whole team, like a class assignment or the final presentation. Team deadlines show at the bottom of everyone's list, and anyone can mark one <b>Submitted</b> once it's turned in.</p>") +
-      faq("What emails and invites will I get?", "<p>At most one reminder email a day, at 8 AM, and only when something of yours is due in the next 2 days or overdue. You also get a Google Calendar invite for each of your assignments and each team deadline, and the agenda email from " + esc(lead) + " before each meeting.</p>") +
+      faq("What emails will I get, and can I turn them down?", "<p>At most one reminder email a day, at 8 AM, and only on days when something of yours is due in the next 2 days, overdue, or newly assigned to you. Every item in it links straight to its page here. Overdue items come up the day after they're due, then every third day, not every morning. You also get the agenda email from " + esc(lead) + " before each meeting.</p><p>To change how often, open your page from <a href=\"#/\">Team</a> and scroll to Email reminders: Daily, Mondays only, or Off. Your assignments and team deadlines also appear on your Google Calendar, without invite emails.</p>") +
       faq("Where do I actually do the work?", "<p>In the Google Doc, Sheet or bCourses page linked from each assignment. The hub only tracks who is doing what and when. <a href=\"#/files\">Files</a> lists everything in the team Drive folder.</p>") +
       faq("How do I suggest a topic for a meeting?", "<p>Go to <a href=\"#/meetings\">Meetings</a>, type it under Suggest a topic, pick your name and click <b>Add topic</b>. It's added to the meeting doc under Suggested by the team, and " + esc(lead) + " decides what makes the agenda.</p>") +
       faq("Where are the notes from past meetings?", "<p>On <a href=\"#/meetings\">Meetings</a>, open Past meetings. Each meeting has its own doc in the Meetings folder of the team Drive, named with its date so they sort in order.</p>") +
@@ -628,6 +646,7 @@
     if (route._moved && h1) h1.focus({ preventScroll: true });
     route._moved = true;
     window.scrollTo(0, 0);
+    if (view === "m" && h[2] === "email") { var em = document.getElementById("email-h"); if (em) { em.scrollIntoView(); em.focus({ preventScroll: true }); } }
   }
 
   /* ---------- writes ---------- */
@@ -765,6 +784,7 @@
   document.addEventListener("change", function (ev) {
     var t = ev.target;
     if (t.name === "status" && t.closest("[data-status-for]")) setStatus(t.closest("[data-status-for]").getAttribute("data-status-for"), t.value);
+    if (t.name === "emailPref" && t.closest("[data-email-for]")) setEmailPref(t.closest("[data-email-for]").getAttribute("data-email-for"), t.value);
     if (t.closest && t.closest("#pm-filter")) {
       store.set("f.who", document.getElementById("f-who").value);
       store.set("f.proj", document.getElementById("f-proj").value);
@@ -814,6 +834,26 @@
     start();
   });
   window.addEventListener("hashchange", route);
+
+  /* ---------- light and dark mode ---------- */
+  function effectiveTheme() {
+    var set = document.documentElement.getAttribute("data-theme");
+    if (set) return set;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function paintToggle() {
+    var b = document.getElementById("theme-toggle"); if (!b) return;
+    var next = effectiveTheme() === "dark" ? "light" : "dark";
+    b.textContent = next === "light" ? "Light mode" : "Dark mode";
+    b.setAttribute("aria-label", "Switch to " + next + " mode");
+  }
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    var next = effectiveTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    store.set("theme", next); paintToggle();
+  });
+  if (window.matchMedia) { try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paintToggle); } catch (e) { /* old browsers */ } }
+  paintToggle();
 
   function start() {
     if (!state.demo && !store.get("code")) { main.innerHTML = viewGate(""); return; }

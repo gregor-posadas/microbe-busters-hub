@@ -1,5 +1,5 @@
 /* Microbe Busters Hub
-   Signage rules: black on white, one typeface, two weights, few sizes.
+   Signage rules: near-black on warm paper (or white on black in dark mode), one typeface, two weights, few sizes.
    Colour only carries meaning: a person's line colour, or a status (always with a shape and a word). */
 
 @font-face { font-family: "Atkinson"; src: url(../fonts/AtkinsonHyperlegibleNext-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
@@ -7,22 +7,24 @@
 @font-face { font-family: "Atkinson"; src: url(../fonts/AtkinsonHyperlegibleNext-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 
 :root {
-  --paper: #ffffff;
-  --surface: #ffffff;
-  --sunk: #f2f2f2;
-  --ink: #000000;
-  --ink-2: #4a4a4a;
-  --rule: #cfcfcf;
-  --rule-strong: #000000;
-  --band: #000000;
+  /* Light theme: warm off-white paper, easy on the eyes */
+  --paper: #f6f2e9;
+  --surface: #fcfaf5;
+  --sunk: #ece6d8;
+  --ink: #1b1a17;
+  --ink-2: #4d4a43;
+  --rule: #d4ccbb;
+  --rule-strong: #1b1a17;
+  --band: #1b1a17;
   --band-ink: #ffffff;
   --focus: #0072b2;
   /* Okabe-Ito status colours; each is always paired with a shape and a word */
   --st-doing: #0072b2;
-  --st-done: #009e73;
-  --st-late: #d55e00;
+  --st-done: #008a64;
+  --st-late: #c85500;
   --st-soon: #e69f00;
-  --st-todo: #000000;
+  --st-todo: #1b1a17;
+  color-scheme: light;
 
   --f1: 0.875rem;  /* 15.75px meta */
   --f2: 1rem;      /* 18px body */
@@ -34,8 +36,9 @@
   --read: 42rem;
   --tap: 48px;
 }
+/* Dark theme: follows the device unless someone picks Light or Dark in the header */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #000000;
     --surface: #121212;
     --sunk: #1c1c1c;
@@ -51,7 +54,26 @@
     --st-late: #ff7a2e;
     --st-soon: #e69f00;
     --st-todo: #ffffff;
+    color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --paper: #000000;
+  --surface: #121212;
+  --sunk: #1c1c1c;
+  --ink: #ffffff;
+  --ink-2: #c9c9c9;
+  --rule: #3d3d3d;
+  --rule-strong: #ffffff;
+  --band: #000000;
+  --band-ink: #ffffff;
+  --focus: #56b4e9;
+  --st-doing: #56b4e9;
+  --st-done: #19b58a;
+  --st-late: #ff7a2e;
+  --st-soon: #e69f00;
+  --st-todo: #ffffff;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -108,7 +130,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .bullet { --c: #000; --t: #fff; flex: none; width: 2.2em; height: 2.2em; border-radius: 50%; background: var(--c); color: var(--t); display: inline-grid; place-items: center; font-weight: 700; line-height: 1; font-size: 1rem; }
 .bullet--lg { font-size: 1.6rem; }
 .bullet--sm { font-size: 0.8rem; }
-@media (prefers-color-scheme: dark) { .bullet { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px #ffffff; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bullet { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px #ffffff; } }
+:root[data-theme="dark"] .bullet { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px #ffffff; }
 
 /* Route line: project milestones as stations */
 .route { margin: 8px 0 32px; }
@@ -222,7 +245,7 @@ details.done-list summary { min-height: var(--tap); display: flex; align-items: 
 .field > span, .field > label { font-weight: 700; font-size: var(--f1); }
 .field small { color: var(--ink-2); font-size: var(--f1); }
 input[type="text"], input[type="date"], input[type="time"], input[type="url"], input[type="password"], input[type="search"], select, textarea {
-  min-height: var(--tap); border: 2px solid var(--ink); background: var(--paper); padding: 8px 12px; border-radius: 0; width: 100%;
+  min-height: var(--tap); border: 2px solid var(--ink); background: var(--surface); padding: 8px 12px; border-radius: 0; width: 100%;
 }
 textarea { min-height: 160px; line-height: 1.5; resize: vertical; }
 select { appearance: auto; }
@@ -337,3 +360,17 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .faq summary { min-height: var(--tap); padding: 12px 0; font-weight: 700; cursor: pointer; display: list-item; }
 .faq__a { padding: 0 0 16px; }
 .faq__a p { max-width: var(--read); }
+
+/* Theme switch in the header */
+.theme-toggle { min-height: var(--tap); padding: 0 14px; background: transparent; color: var(--band-ink); border: 2px solid #6b6b6b; font-weight: 700; cursor: pointer; }
+.theme-toggle:hover { border-color: #ffffff; }
+.band__tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Email reminder setting reuses the status picker */
+.picker--email label span { display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; }
+.picker--email input:checked + span { text-decoration: none; }
+.picker--email input:checked + span b { text-decoration: underline; text-decoration-thickness: 3px; }
+.picker--email small { font-weight: 400; font-size: var(--f1); }
+@media (max-width: 420px) { .picker--email label span { text-align: left; } }
+
+h2[tabindex="-1"]:focus { outline: none; }
