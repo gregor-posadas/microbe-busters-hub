@@ -8,8 +8,8 @@
  * What it does:
  *  - Serves the team's members, projects, assignments and Drive files to the website.
  *  - Saves status changes and project manager edits back to the Sheet.
- *  - Sends a Google Calendar invite for each assignment's due date, and invites
- *    the whole team to each project deadline (class assignments, presentations).
+ *  - Keeps every assignment and team deadline on one shared "Microbe Busters deadlines"
+ *    calendar, without inviting anyone.
  *  - Emails a reminder every morning to anyone with work due within 2 days or overdue,
  *    plus a summary for the project manager.
  */
@@ -95,8 +95,8 @@ function setup() {
   Logger.log('Next: set APP_URL in Project Settings > Script properties to your GitHub Pages address, then deploy as a web app.');
 }
 
-/** Optional, run once after setup (and again after editing the Sheet by hand):
- *  sends calendar invites for assignments and project deadlines already in the Sheet. */
+/** Run once after setup (and again after editing the Sheet by hand): puts every open assignment and
+ *  team deadline on the shared "Microbe Busters deadlines" calendar, and takes guests off older events. */
 function syncAllCalendarEvents() {
   var rows = readTable('Assignments');
   rows.forEach(function (a) {
@@ -110,7 +110,7 @@ function syncAllCalendarEvents() {
     var id = syncProjectCalendar(p);
     if (id !== p.calendarEventId) { p.calendarEventId = id; writeRow('Projects', p); }
   });
-  Logger.log('Calendar invites synced for ' + rows.length + ' assignments and ' + projects.length + ' projects.');
+  Logger.log('Deadlines calendar synced: ' + rows.length + ' assignments and ' + projects.length + ' projects. No one is invited to these events.');
 }
 
 function randomCode() {
@@ -375,7 +375,8 @@ function syncCalendar(a) {
   if (!a.due) { removeEvent(a.calendarEventId); return ''; }
   var member = indexBy(readTable('Members'))[a.memberId] || {};
   var end = new Date(a.due), start = new Date(end.getTime() - 30 * 60000);
-  var title = (a.status === 'done' ? 'Done: ' : 'Due: ') + a.title;
+  var who = member.name ? ' (' + member.name.split(' ')[0] + ')' : '';
+  var title = (a.status === 'done' ? 'Done' : 'Due') + who + ': ' + a.title;
   var appUrl = PropertiesService.getScriptProperties().getProperty('APP_URL') || '';
   var description = (a.instructions || '') + (a.link ? '\n\nDocument: ' + a.link : '') + (appUrl ? '\n\nMicrobe Busters Hub: ' + appUrl + '#/a/' + a.id : '');
   var cal = calendar(), ev = null;
@@ -385,19 +386,29 @@ function syncCalendar(a) {
     ev.setTitle(title);
     ev.setDescription(description);
     if (moved) ev.setTime(start, end);
-    if (member.email && !ev.getGuestByEmail(member.email)) ev.addGuest(member.email);
+    stripGuests(ev);
     return ev.getId();
   }
-  ev = cal.createEvent(title, start, end, { description: description, guests: member.email || '', sendInvites: false });
+  // Deadlines live only on the shared "Microbe Busters deadlines" calendar: no guests, so nothing lands on personal calendars.
+  ev = cal.createEvent(title, start, end, { description: description });
   ev.addPopupReminder(24 * 60);
   ev.addPopupReminder(60);
   return ev.getId();
 }
 
-/** Project deadline: a 30-minute event ending at the due time, with the whole team invited. */
+/** Takes every guest off a deadline event without notifying anyone (it disappears from their personal calendars). */
+function stripGuests(ev) {
+  if (!ev.getGuestList().length) return;
+  try {
+    Calendar.Events.patch({ attendees: [] }, calendar().getId(), ev.getId().replace(/@google\.com$/, ''), { sendUpdates: 'none' });
+  } catch (e) {
+    ev.getGuestList().forEach(function (g) { ev.removeGuest(g.getEmail()); });
+  }
+}
+
+/** Project deadline: a 30-minute event on the shared deadlines calendar, ending at the due time. */
 function syncProjectCalendar(p) {
   if (!p.due || !isActive(p)) { removeEvent(p.calendarEventId); return ''; }
-  var emails = readTable('Members').map(function (m) { return m.email; }).filter(Boolean);
   var end = new Date(p.due), start = new Date(end.getTime() - 30 * 60000);
   var title = (p.status === 'done' ? 'Submitted: ' : 'Team deadline: ') + p.name;
   var appUrl = PropertiesService.getScriptProperties().getProperty('APP_URL') || '';
@@ -409,10 +420,10 @@ function syncProjectCalendar(p) {
     ev.setTitle(title);
     ev.setDescription(description);
     if (ev.getEndTime().getTime() !== end.getTime()) ev.setTime(start, end);
-    emails.forEach(function (em) { if (!ev.getGuestByEmail(em)) ev.addGuest(em); });
+    stripGuests(ev);
     return ev.getId();
   }
-  ev = cal.createEvent(title, start, end, { description: description, guests: emails.join(','), sendInvites: false });
+  ev = cal.createEvent(title, start, end, { description: description });
   ev.addPopupReminder(24 * 60);
   ev.addPopupReminder(60);
   return ev.getId();
