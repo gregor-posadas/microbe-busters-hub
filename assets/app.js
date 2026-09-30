@@ -105,8 +105,20 @@
     return d && d < new Date() ? "late" : "todo";
   }
   var PLABEL = { done: "Submitted", late: "Past due", todo: "Open" };
-  function pBadge(p) { var k = pKey(p); return '<span class="st">' + shape(k) + PLABEL[k] + "</span>"; }
-  function pRel(p) { var d = due(p); return p.status === "done" ? "Submitted" : relDue(d, false).replace("Overdue by", "Past due by"); }
+  var CLIENT = cfg.clientName || "our client";
+  function isClient(p) { return p && p.audience === "client"; }
+  function doneWord(p) { return isClient(p) ? "Delivered" : "Submitted"; }
+  function pBadge(p) {
+    var k = pKey(p);
+    if (k !== "done" && (p.scope === "to-confirm" || p.scope === "on-hold")) return '<span class="st">' + shape("todo") + (p.scope === "on-hold" ? "On hold" : "Not confirmed") + "</span>";
+    return '<span class="st">' + shape(k) + (k === "done" ? doneWord(p) : PLABEL[k]) + "</span>";
+  }
+  function pRel(p) { var d = due(p); if (p.status === "done") return doneWord(p); if (!d) return ""; return relDue(d, false).replace("Overdue by", "Past due by"); }
+  /* Who a deadline is for: filled tag for the client, outlined tag for the class. Text carries the meaning; fill tells them apart at a glance. */
+  function forTag(p, small) {
+    if (!p || !p.audience) return "";
+    return '<span class="for for--' + esc(p.audience) + (small ? " for--sm" : "") + '">' + (p.audience === "client" ? "For " + esc(CLIENT) : "DevEng C200") + "</span>";
+  }
   function badge(a) { var k = statusKey(a); return '<span class="st">' + shape(k) + LABEL[k] + "</span>"; }
   function bullet(m, size) {
     return '<span class="bullet' + (size ? " bullet--" + size : "") + '" style="--c:' + esc(m.color) + ";--t:" + esc(m.textColor || "#fff") + '" aria-hidden="true">' + initial(m.name) + "</span>";
@@ -180,6 +192,7 @@
       var d = new Date(m.date), cls = d < now ? "is-past" : (i === nextIdx ? "is-next" : "");
       var text = '<span class="when">' + esc(m.dateLabel || fmtDay(d)) + '</span><span class="what">' + esc(m.label) + (i === nextIdx ? '<span class="sr"> (next)</span>' : "") + "</span>";
       var target = m.projectId && byId(state.data.projects, m.projectId);
+      if (target && target.audience) text += forTag(target, true);
       return '<li class="' + cls + '"><span class="stop" aria-hidden="true"></span>' + (target ? '<a href="#/p/' + esc(m.projectId) + '">' + text + "</a>" : "<span>" + text + "</span>") + "</li>";
     }).join("") + "</ol></section>" : "";
 
@@ -206,7 +219,7 @@
     var d = due(a), k = statusKey(a), m = member(a.memberId), p = project(a.projectId);
     return '<li class="row' + (k === "done" ? " is-done" : "") + '"><a href="#/a/' + esc(a.id) + '">' +
       '<span class="row__main"><span class="row__title">' + esc(a.title) + "</span>" +
-      '<span class="row__meta">' + badge(a) + (hideProject ? "" : "<span>" + esc(p.name) + "</span>") + (showWho ? "<span>" + esc(m.name) + "</span>" : "") + "</span></span>" +
+      '<span class="row__meta">' + badge(a) + (hideProject ? "" : forTag(p, true) + "<span>" + esc(p.name) + "</span>") + (showWho ? "<span>" + esc(m.name) + "</span>" : "") + "</span></span>" +
       '<span class="row__due"><span class="row__day">' + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "No due date") + '</span><span class="row__rel">' + esc(relDue(d, k === "done")) + "</span></span>" +
       "</a></li>";
   }
@@ -215,8 +228,8 @@
     var d = due(p), k = pKey(p), n = state.data.assignments.filter(function (a) { return a.projectId === p.id; }).length;
     return '<li class="row row--team' + (k === "done" ? " is-done" : "") + '"><a href="#/p/' + esc(p.id) + '">' +
       '<span class="row__main"><span class="row__title">' + esc(p.name) + "</span>" +
-      '<span class="row__meta">' + pBadge(p) + "<span>Whole team</span>" + (n ? "<span>" + n + (n === 1 ? " assignment" : " assignments") + "</span>" : "") + "</span></span>" +
-      '<span class="row__due"><span class="row__day">' + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "No due date") + '</span><span class="row__rel">' + esc(pRel(p)) + "</span></span></a></li>";
+      '<span class="row__meta">' + pBadge(p) + forTag(p, true) + (n ? "<span>" + n + (n === 1 ? " assignment" : " assignments") + "</span>" : "") + "</span></span>" +
+      '<span class="row__due"><span class="row__day">' + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "No date yet") + '</span><span class="row__rel">' + esc(pRel(p)) + "</span></span></a></li>";
   }
 
   var EMAIL_OPTS = [["daily", "Daily", "Only on days something is due soon, overdue or new"], ["weekly", "Mondays only", "One email with the whole week"], ["off", "Off", "No reminder emails"]];
@@ -257,7 +270,7 @@
       return '<section class="section" aria-labelledby="g-' + key + '"><h2 id="g-' + key + '">' + title + '</h2>' +
         (items.length ? '<ul class="rows">' + items.map(function (a) { return rowHtml(a); }).join("") + "</ul>" : '<p class="empty">' + empty + "</p>") + "</section>";
     }
-    var team = state.data.projects.filter(function (p) { return p.due && p.status !== "done"; }).sort(sortByDue);
+    var team = state.data.projects.filter(function (p) { return p.due && p.status !== "done" && p.scope !== "to-confirm" && p.scope !== "on-hold"; }).sort(sortByDue);
     var teamHtml = team.length ? '<section class="section" aria-labelledby="g-team"><h2 id="g-team">Team deadlines</h2><p class="section__note">Shared by the whole team. Open one to see what the class or client asks for.</p><ul class="rows">' +
       team.map(projectRowHtml).join("") + "</ul></section>" : "";
     var doneHtml = groups.done.length
@@ -354,18 +367,39 @@
     var course = safeUrl(p.courseLink), doc = safeUrl(p.link);
     var who = list.length ? '<ul class="rows">' + list.map(function (a) { return rowHtml(a, true, true); }).join("") + "</ul>"
       : '<p class="empty">No one has an assignment for this yet. The project manager can split it up with Add an assignment.</p>';
-    return '<div class="wrap"><div class="detail"><div class="head" style="padding-bottom:0"><a class="crumb" href="#/">Team</a>' +
-      '<h1 tabindex="-1">' + esc(p.name) + '</h1><p class="detail__project">Whole-team deadline</p></div>' +
+    return '<div class="wrap"><div class="detail"><div class="head" style="padding-bottom:0">' + (p.audience ? '<a class="crumb" href="#/deliverables">Deliverables</a>' : '<a class="crumb" href="#/">Team</a>') +
+      '<h1 tabindex="-1">' + esc(p.name) + '</h1><p class="detail__project">' + (p.audience ? forTag(p) + " " : "") + (isClient(p) ? "Deliverable for " + esc(CLIENT) + (p.scope === "to-confirm" ? ", not confirmed yet" : p.scope === "on-hold" ? ", on hold" : "") : p.audience === "class" ? "Class assignment for the whole team" : "Whole-team deadline") + "</p></div>" +
       '<div class="due-block"><div class="due-block__when"><p class="due-block__label">Due</p><p class="due-block__date">' + (d ? esc(fmtDay(d)) + "<br>" + esc(fmtTime(d)) : "No due date") + '</p><p class="due-block__rel">' + esc(pRel(p)) + '</p></div><div class="due-block__status">' + pBadge(p) + "</div></div>" +
       "<h2>About this</h2>" + richText(p.description, "No description yet.") +
       '<div class="actions">' +
       (course ? '<a class="btn btn--solid" href="' + esc(course) + '" target="_blank" rel="noopener">Open on bCourses<span class="sr"> (opens in a new tab)</span></a>' : "") +
       (doc ? '<a class="btn' + (course ? "" : " btn--solid") + '" href="' + esc(doc) + '" target="_blank" rel="noopener">Open the project doc<span class="sr"> (opens in a new tab)</span></a>' : "") +
       (d ? '<a class="btn" href="' + esc(calendarUrl(p)) + '" target="_blank" rel="noopener">Add to Google Calendar<span class="sr"> (opens in a new tab)</span></a>' : "") + "</div>" +
-      (d ? '<div class="submit-bar"><p>' + (k === "done" ? "Marked submitted. If that was a mistake, undo it." : "Once the team has turned this in, mark it submitted so it drops off everyone's list.") + '</p><button type="button" class="btn" data-act="project-status" data-id="' + esc(p.id) + '">' + (k === "done" ? "Undo submitted" : "Mark as submitted") + "</button></div>" : "") +
+      (d || isClient(p) ? '<div class="submit-bar"><p>' + (k === "done" ? "Marked " + doneWord(p).toLowerCase() + ". If that was a mistake, undo it." : isClient(p) ? "Once " + esc(CLIENT) + " has it, mark it delivered so it drops off everyone's list." : "Once the team has turned this in, mark it submitted so it drops off everyone's list.") + '</p><button type="button" class="btn" data-act="project-status" data-id="' + esc(p.id) + '">' + (k === "done" ? "Undo " + doneWord(p).toLowerCase() : "Mark as " + doneWord(p).toLowerCase()) + "</button></div>" : "") +
       "<h2>Who is doing what</h2>" + who +
       '<div class="actions"><button type="button" class="btn" data-act="new-assignment" data-project="' + esc(p.id) + '">Add an assignment</button><button type="button" class="btn btn--quiet" data-act="edit-project" data-id="' + esc(p.id) + '">Edit project</button></div>' +
       "</div></div>";
+  }
+
+  function viewDeliverables() {
+    var ps = state.data.projects;
+    var byDate = function (a, b) { var da = due(a), db = due(b); if (!da && !db) return 0; if (!da) return 1; if (!db) return -1; return da - db; };
+    var client = ps.filter(isClient).sort(byDate), cls = ps.filter(function (p) { return p.audience === "class"; }).sort(byDate);
+    function group(title, note, list, empty) {
+      return '<section class="deliv-group"><h3>' + title + "</h3>" + (note ? '<p class="section__note">' + note + "</p>" : "") +
+        (list.length ? '<ul class="rows">' + list.map(projectRowHtml).join("") + "</ul>" : '<p class="empty">' + empty + "</p>") + "</section>";
+    }
+    var agreed = client.filter(function (p) { return !p.scope || p.scope === "confirmed"; });
+    var tbc = client.filter(function (p) { return p.scope === "to-confirm"; });
+    var hold = client.filter(function (p) { return p.scope === "on-hold"; });
+    return '<div class="wrap"><div class="head"><h1 tabindex="-1">Deliverables</h1><p>What we owe ' + esc(CLIENT) + ", kept apart from what we owe the class. Everywhere in the hub, work for " + esc(CLIENT) + " carries a " + forTag({ audience: "client" }, true) + " tag and class work carries a " + forTag({ audience: "class" }, true) + " tag.</p></div>" +
+      '<section class="section deliv deliv--client" aria-labelledby="dc-h"><h2 id="dc-h">For ' + esc(CLIENT) + "</h2>" +
+      group("Agreed", "", agreed, "Nothing agreed yet.") +
+      group("Not confirmed yet", "From " + esc(CLIENT) + "'s project pitch and our emails. Ask him which of these he wants from us before we plan work for them.", tbc, "Nothing waiting on an answer.") +
+      (hold.length ? group("On hold", "", hold, "") : "") +
+      '<div class="actions"><button type="button" class="btn" data-act="new-deliverable">Add a deliverable</button></div></section>' +
+      '<section class="section deliv deliv--class" aria-labelledby="dk-h"><h2 id="dk-h">For DevEng C200</h2><p class="section__note">Class assignments, all on bCourses.</p>' +
+      (cls.length ? '<ul class="rows">' + cls.map(projectRowHtml).join("") + "</ul>" : '<p class="empty">No class assignments yet.</p>') + "</section></div>";
   }
 
   function viewPM() {
@@ -386,7 +420,7 @@
       if (!rows.length) return "";
       var allP = all.filter(function (a) { return a.projectId === p.id; }), doneP = allP.filter(function (a) { return a.status === "done"; }).length;
       var pct = allP.length ? Math.round(100 * doneP / allP.length) : 0;
-      return '<table class="pm-table"><caption><a href="#/p/' + esc(p.id) + '">' + esc(p.name) + "</a>" + (p.due ? "<small>Due " + esc(fmtDay(new Date(p.due))) + "</small>" : "") +
+      return '<table class="pm-table"><caption><a href="#/p/' + esc(p.id) + '">' + esc(p.name) + "</a> " + forTag(p, true) + (p.due ? "<small>Due " + esc(fmtDay(new Date(p.due))) + "</small>" : "") +
         '<br><span class="progress"><span class="progress__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span><small>' + doneP + " of " + allP.length + " done</small></span></caption>" +
         '<thead><tr><th scope="col">Who</th><th scope="col">Assignment</th><th scope="col">Due</th><th scope="col">Status</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>' +
         rows.map(function (a) {
@@ -492,7 +526,8 @@
     var topics = state.data.topics.filter(function (t) { return t.meetingId === m.id; });
     var topicList = topics.length ? '<ul class="topics">' + topics.map(function (t) {
       var who = member(t.memberId);
-      return "<li>" + (t.memberId ? bullet(who, "sm") : "") + "<span>" + esc(t.text) + (t.memberId ? '<small>Suggested by ' + esc(first(who.name)) + "</small>" : "") + "</span></li>";
+      return "<li>" + (t.memberId ? bullet(who, "sm") : "") + '<span class="topics__text">' + esc(t.text) + (t.memberId ? '<small>Suggested by ' + esc(first(who.name)) + "</small>" : "") + "</span>" +
+        (past ? "" : '<button type="button" class="btn btn--quiet" data-act="remove-topic" data-id="' + esc(t.id) + '">Remove<span class="sr"> the topic ' + esc(t.text) + "</span></button>") + "</li>";
     }).join("") + "</ul>" : '<p class="empty">No topics suggested yet.</p>';
     var html = '<section class="section" aria-labelledby="ag-h"><h2 id="ag-h">Agenda</h2><p class="agenda-status">' + agendaBadge(m) + "</p>";
     if (!past) {
@@ -563,6 +598,19 @@
       });
   }
 
+  function removeTopicDialog(id) {
+    var t = byId(state.data.topics, id); if (!t) return;
+    openDialog('<form method="dialog"><div class="dlg__head"><h2>Remove this topic?</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body">' +
+      "<p><b>" + esc(t.text) + "</b> will be removed from the hub and from Suggested by the team in the meeting doc. If " + esc(first(member(LEAD).name)) + " already moved it into the agenda, that copy stays.</p>" +
+      '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Keep it</button><button type="submit" class="btn btn--solid">Remove topic</button></div></form>',
+      function () {
+        return apiPost({ action: "deleteTopic", id: id }).then(function (r) {
+          state.data.topics = state.data.topics.filter(function (x) { return x.id !== id; });
+          route(); toast("Topic removed" + (r.demo ? " (demo, not saved)" : ""));
+        });
+      });
+  }
+
   function addTopic(form) {
     var id = form.getAttribute("data-id"), text = form.querySelector("textarea").value.replace(/\s+/g, " ").trim(), who = form.querySelector("select").value;
     if (!text) { form.querySelector("textarea").focus(); return; }
@@ -599,6 +647,8 @@
       '<section class="section" aria-labelledby="faq-h"><h2 id="faq-h">Questions</h2>' +
       faq("My assignment is wrong, or something is missing.", "<p>Tell " + esc(pm) + ". Only the project manager can add, change or delete assignments. That keeps one person responsible for the list.</p>") +
       faq("What's the difference between an assignment and a team deadline?", "<p>An assignment is yours: one person, one task, one due date. A team deadline belongs to the whole team, like a class assignment or the final presentation. Team deadlines show at the bottom of everyone's list, and anyone can mark one <b>Submitted</b> once it's turned in.</p>") +
+      faq("How do I tell work for " + esc(CLIENT) + " apart from class work?", "<p>Look for the tag. Work for " + esc(CLIENT) + " has a filled " + forTag({ audience: "client" }, true) + " tag, and class assignments have an outlined " + forTag({ audience: "class" }, true) + " tag. <a href=\"#/deliverables\">Deliverables</a> lists both side by side, including things " + esc(CLIENT) + " mentioned that we haven't agreed to yet.</p>") +
+      faq("I made a typo in a suggested topic.", "<p>On <a href=\"#/meetings\">Meetings</a>, click <b>Remove</b> next to the topic and add it again. Removing it also takes it out of the meeting doc.</p>") +
       faq("What emails will I get, and can I turn them down?", "<p>At most one reminder email a day, at 8 AM, and only on days when something of yours is due in the next 2 days, overdue, or newly assigned to you. Every item in it links straight to its page here. Overdue items come up the day after they're due, then every third day, not every morning. You also get the agenda email from " + esc(lead) + " before each meeting.</p><p>To change how often, open your page from <a href=\"#/\">Team</a> and scroll to Email reminders: Daily, Mondays only, or Off. Your assignments and team deadlines also appear on your Google Calendar, without invite emails.</p>") +
       faq("Where do I actually do the work?", "<p>In the Google Doc, Sheet or bCourses page linked from each assignment. The hub only tracks who is doing what and when. <a href=\"#/files\">Files</a> lists everything in the team Drive folder.</p>") +
       faq("How do I suggest a topic for a meeting?", "<p>Go to <a href=\"#/meetings\">Meetings</a>, type it under Suggest a topic, pick your name and click <b>Add topic</b>. It's added to the meeting doc under Suggested by the team, and " + esc(lead) + " decides what makes the agenda.</p>") +
@@ -626,7 +676,8 @@
     var h = location.hash.replace(/^#\/?/, "").split("/");
     var view = h[0] || "home";
     document.querySelectorAll("[data-nav]").forEach(function (a) {
-      var on = a.getAttribute("data-nav") === (view === "m" || view === "a" || view === "p" ? "home" : view === "mt" ? "meetings" : view);
+      var pv = view === "p" && state.data ? byId(state.data.projects, h[1]) : null;
+      var on = a.getAttribute("data-nav") === (view === "p" && pv && pv.audience ? "deliverables" : view === "m" || view === "a" || view === "p" ? "home" : view === "mt" ? "meetings" : view);
       if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
     if (!state.data) return;
@@ -637,6 +688,7 @@
     else if (view === "pm") { html = viewPM(); title = "Project view"; }
     else if (view === "files") { html = viewFiles(); title = "Team files"; }
     else if (view === "meetings") { html = viewMeetings(); title = "Meetings"; }
+    else if (view === "deliverables") { html = viewDeliverables(); title = "Deliverables"; }
     else if (view === "mt") { var mt = meetingById(h[1]); html = viewMeeting(h[1]); if (mt) title = fmtDay(new Date(mt.start)) + " meeting"; }
     else if (view === "about") { html = viewAbout(); title = "About and FAQ"; }
     else { html = viewHome(); }
@@ -668,7 +720,7 @@
     var prev = p.status, next = p.status === "done" ? "" : "done";
     p.status = next; route();
     apiPost({ action: "setProjectStatus", id: id, status: next }).then(function (r) {
-      toast((next ? "Marked submitted" : "Marked not submitted") + (r.demo ? " (demo, not saved)" : ""));
+      toast((next ? "Marked " : "Marked not ") + doneWord(p).toLowerCase() + (r.demo ? " (demo, not saved)" : ""));
     }).catch(function (e) { p.status = prev; route(); toast("Not saved: " + e.message); });
   }
 
@@ -760,18 +812,23 @@
   }
 
   function projectForm(p) {
-    var editing = !!p; p = p || { name: "", due: "", link: "", description: "", courseLink: "", status: "" };
+    var editing = !!p; p = p || { name: "", due: "", link: "", description: "", courseLink: "", status: "", audience: projectForm.preset || "", scope: projectForm.preset === "client" ? "confirmed" : "" };
+    projectForm.preset = "";
     var lp = localParts(p.due);
     return '<form method="dialog"><div class="dlg__head"><h2>' + (editing ? "Edit project" : "New project") + '</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body">' +
       '<div class="field"><label for="pj-name">Name</label><input id="pj-name" name="name" type="text" required value="' + esc(p.name) + '"></div>' +
       '<div class="field"><label for="pj-desc">Description</label><textarea id="pj-desc" name="description" style="min-height:160px">' + esc(p.description) + '</textarea><small>Start lines with a dash for a list. Links: paste the address, or write [link text](https://...).</small></div>' +
       '<div class="two"><div class="field"><label for="pj-date">Due date</label><input id="pj-date" name="date" type="date" value="' + esc(lp.date) + '"></div><div class="field"><label for="pj-time">Due time</label><input id="pj-time" name="time" type="time" value="' + esc(lp.time) + '"></div></div>' +
       '<div class="field"><label for="pj-link">Main document link</label><input id="pj-link" name="link" type="url" value="' + esc(p.link) + '" placeholder="https://"></div>' +
+      '<div class="two"><div class="field"><label for="pj-aud">Who is it for?</label><select id="pj-aud" name="audience">' +
+        [["client", "For " + CLIENT], ["class", "DevEng C200 (class)"], ["", "Just the team"]].map(function (o) { return '<option value="' + o[0] + '"' + ((p.audience || "") === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("") + "</select></div>" +
+      '<div class="field"><label for="pj-scope">Agreed with ' + esc(CLIENT) + '?</label><select id="pj-scope" name="scope">' +
+        [["confirmed", "Agreed"], ["to-confirm", "Not confirmed yet"], ["on-hold", "On hold"], ["", "Doesn't apply"]].map(function (o) { return '<option value="' + o[0] + '"' + ((p.scope || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select><small>Only for deliverables for " + esc(CLIENT) + ".</small></div></div>" +
       '<div class="field"><label for="pj-course">bCourses page</label><input id="pj-course" name="courseLink" type="url" value="' + esc(p.courseLink || "") + '" placeholder="https://bcourses.berkeley.edu/..."><small>Leave empty if it isn\'t a class assignment.</small></div>' + pmCodeField() +
       '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn--solid">' + (editing ? "Save changes" : "Create project") + "</button></div></form>";
   }
   function saveProject(existing, v) {
-    var p = Object.assign({}, existing || { id: newId("p") }, { name: String(v.name || "").trim(), description: v.description || "", due: zonedIso(v.date, v.time), link: v.link || "", courseLink: v.courseLink || "" });
+    var p = Object.assign({}, existing || { id: newId("p") }, { name: String(v.name || "").trim(), description: v.description || "", due: zonedIso(v.date, v.time), link: v.link || "", courseLink: v.courseLink || "", audience: v.audience || "", scope: v.audience === "client" ? (v.scope || "") : "" });
     return apiPost({ action: "saveProject", project: p }).then(function (r) {
       var i = state.data.projects.findIndex(function (x) { return x.id === p.id; });
       if (r.project) p = r.project;
@@ -809,6 +866,8 @@
     if (act === "new-project") openDialog(projectForm(null), function (v) { return saveProject(null, v); });
     if (act === "edit-project") { ev.preventDefault(); var p = byId(state.data.projects, id); openDialog(projectForm(p), function (v) { return saveProject(p, v); }); }
     if (act === "share-agenda") shareAgendaDialog(id);
+    if (act === "remove-topic") removeTopicDialog(id);
+    if (act === "new-deliverable") { projectForm.preset = "client"; openDialog(projectForm(null), function (v) { return saveProject(null, v); }); }
     if (act === "sync-meetings") {
       var go = function () { return apiPost({ action: "syncMeetings" }).then(function (r) { if (r.meetings) state.data.meetings = r.meetings; route(); toast(r.demo ? "Refreshed (demo)" : "Meetings refreshed from Google Calendar"); }); };
       if (needPmCode()) openDialog('<form method="dialog"><div class="dlg__head"><h2>Refresh meetings</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body"><p>Reads the weekly meeting from Google Calendar and makes the doc for any meeting in the next 7 days.</p>' + pmCodeField() + '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn--solid">Refresh</button></div></form>', go);

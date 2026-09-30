@@ -17,7 +17,7 @@
 var TZ = 'America/Los_Angeles';
 var TABS = {
   Members: ['id', 'name', 'email', 'role', 'color', 'textColor', 'emailPref'],
-  Projects: ['id', 'name', 'due', 'link', 'description', 'courseLink', 'status', 'calendarEventId'],
+  Projects: ['id', 'name', 'due', 'link', 'description', 'courseLink', 'status', 'calendarEventId', 'audience', 'scope'],
   Assignments: ['id', 'projectId', 'memberId', 'title', 'instructions', 'due', 'link', 'linkLabel', 'status', 'updatedAt', 'updatedBy', 'calendarEventId', 'assignedAt'],
   Milestones: ['date', 'label', 'dateLabel', 'projectId'],
   Meetings: ['id', 'start', 'end', 'title', 'meetLink', 'docUrl', 'agendaSharedAt', 'agendaSharedBy', 'eventId'],
@@ -39,7 +39,7 @@ var MEETING_DEFAULTS = {
 };
 // Keep these in step with MEET_AGENDA_STEPS and MEET_NOTES_STEPS in tools/seed.py.
 var MEETING_STEPS = {
-  agenda: '- Open the meeting doc. The date, Meet link and next meeting are already filled in.\n' +
+  agenda: '- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n' +
     '- Prep: skim last meeting\'s notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n' +
     '- Look at the topics the team suggested under Suggested by the team.\n' +
     '- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n' +
@@ -106,7 +106,7 @@ function syncAllCalendarEvents() {
   });
   var projects = readTable('Projects');
   projects.forEach(function (p) {
-    if (p.status === 'done' || !p.due) return;
+    if (p.status === 'done' || !p.due || !isActive(p)) return;
     var id = syncProjectCalendar(p);
     if (id !== p.calendarEventId) { p.calendarEventId = id; writeRow('Projects', p); }
   });
@@ -158,6 +158,9 @@ function doPost(e) {
       case 'setEmailPref':
         checkCode(b.code, 'team');
         return json(setEmailPref(b.memberId, b.pref));
+      case 'deleteTopic':
+        checkCode(b.code, 'team');
+        return json(deleteTopic(b.id, who));
       case 'addTopic':
         checkCode(b.code, 'team');
         return json(addTopic(b.meetingId, b.text, who));
@@ -321,7 +324,9 @@ function saveProject(input, who) {
     description: input.description || '',
     courseLink: url(input.courseLink),
     status: input.status === 'done' ? 'done' : '',
-    calendarEventId: existing ? existing.calendarEventId : ''
+    calendarEventId: existing ? existing.calendarEventId : '',
+    audience: ['client', 'class'].indexOf(input.audience) > -1 ? input.audience : '',   // who it's for: Christopher, DevEng C200, or the team
+    scope: ['confirmed', 'to-confirm', 'on-hold'].indexOf(input.scope) > -1 ? input.scope : ''
   };
   p.calendarEventId = syncProjectCalendar(p);
   writeRow('Projects', p);
@@ -338,6 +343,9 @@ function setProjectStatus(id, status, who) {
   log(who, 'project status', p.name + ' -> ' + (p.status || 'open'));
   return { ok: true, project: p };
 }
+
+/** Deliverables that aren't agreed yet (or are on hold) stay off calendars, reminders and everyone's lists. */
+function isActive(p) { return p.scope !== 'to-confirm' && p.scope !== 'on-hold'; }
 
 function findProject(id, quiet) {
   var list = readTable('Projects');
@@ -388,7 +396,7 @@ function syncCalendar(a) {
 
 /** Project deadline: a 30-minute event ending at the due time, with the whole team invited. */
 function syncProjectCalendar(p) {
-  if (!p.due) { removeEvent(p.calendarEventId); return ''; }
+  if (!p.due || !isActive(p)) { removeEvent(p.calendarEventId); return ''; }
   var emails = readTable('Members').map(function (m) { return m.email; }).filter(Boolean);
   var end = new Date(p.due), start = new Date(end.getTime() - 30 * 60000);
   var title = (p.status === 'done' ? 'Submitted: ' : 'Team deadline: ') + p.name;
@@ -440,13 +448,18 @@ function syncMeetings() {
   // A future meeting that disappeared from the calendar was cancelled: drop it unless it already has a doc.
   Object.keys(existing).forEach(function (id) {
     var m = existing[id];
-    if (!seen[id] && new Date(m.start) > now && !m.docUrl) { deleteRow('Meetings', id); delete existing[id]; }
+    if (!seen[id] && new Date(m.start) > now && !m.docUrl) {
+      deleteRow('Meetings', id); delete existing[id];
+      var job = findAssignment('m-' + id + '-agenda', true);
+      if (job && job.status !== 'done') { removeEvent(job.calendarEventId); deleteRow('Assignments', job.id); }
+    }
   });
   var list = Object.keys(existing).map(function (k) { return existing[k]; }).sort(function (a, b) { return a.start < b.start ? -1 : 1; });
   var horizon = new Date(now.getTime() + Number(setting('PREP_DAYS')) * 86400000);
   list.forEach(function (m, i) {
     var start = new Date(m.start);
     if (!m.docUrl && start > now && start <= horizon) prepareMeeting(m, list[i - 1], list[i + 1]);
+    if (start > now) ensureAgendaJob(m);   // Mary's agenda job exists for every upcoming meeting, not just the next one
   });
   return list;
 }
@@ -507,7 +520,6 @@ function prepareMeeting(m, prev, next) {
   // The two recurring jobs, as assignments with the doc attached.
   var label = Utilities.formatDate(start, TZ, 'MMM d');
   var jobs = [
-    { id: 'm-' + m.id + '-agenda', memberId: setting('MEETING_LEAD'), title: 'Prep and share the agenda for the ' + label + ' meeting', due: cell(agendaDue), instructions: MEETING_STEPS.agenda },
     { id: 'm-' + m.id + '-notes', memberId: setting('NOTE_TAKER'), title: 'Take notes at the ' + label + ' meeting', due: atTime(new Date(start.getTime() + 86400000), '12:00'), instructions: MEETING_STEPS.notes }
   ];
   jobs.forEach(function (j) {
@@ -517,8 +529,28 @@ function prepareMeeting(m, prev, next) {
     a.calendarEventId = syncCalendar(a);
     writeRow('Assignments', a);
   });
+  ensureAgendaJob(m);
   log('hub', 'meeting prepared', m.id);
   return m;
+}
+
+/** Creates or updates the meeting lead's agenda job for one meeting: due 9 PM the day before, linked to the doc once it exists. */
+function ensureAgendaJob(m) {
+  var start = new Date(m.start);
+  var due = atTime(new Date(start.getTime() - 86400000), '21:00');
+  var id = 'm-' + m.id + '-agenda', a = findAssignment(id, true);
+  if (a && a.status === 'done') return a;
+  var changed = !a;
+  a = a || { id: id, projectId: 'meetings', memberId: setting('MEETING_LEAD'), instructions: MEETING_STEPS.agenda, link: '', linkLabel: '',
+    status: 'todo', updatedAt: cell(new Date()), updatedBy: 'hub', calendarEventId: '', assignedAt: cell(new Date()) };
+  var title = 'Prep and share the agenda for the ' + Utilities.formatDate(start, TZ, 'MMM d') + ' meeting';
+  if (a.title !== title) { a.title = title; changed = true; }
+  if (a.due !== due) { a.due = due; changed = true; }
+  if (m.docUrl && a.link !== m.docUrl) { a.link = m.docUrl; a.linkLabel = 'Open the meeting doc'; changed = true; }
+  if (!changed) return a;
+  a.calendarEventId = syncCalendar(a);
+  writeRow('Assignments', a);
+  return a;
 }
 
 /** "Microbe Busters Meeting – ..." taken from last meeting's doc name, so the naming stays consistent. */
@@ -591,6 +623,42 @@ function addTopicToDoc(docUrl, line) {
     li.setGlyphType(last.getGlyphType());
   } else {
     body.insertListItem(i, line).setGlyphType(DocumentApp.GlyphType.BULLET);
+  }
+  doc.saveAndClose();
+}
+
+/** Removes a suggested topic, from the hub and from under "Suggested by the team" in the meeting doc. */
+function deleteTopic(id, who) {
+  var list = readTable('Topics'), t = null;
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) t = list[i];
+  if (!t) return { ok: true };   // already gone
+  deleteRow('Topics', id);
+  var m = null;
+  try { m = findMeeting(t.meetingId); } catch (e) { m = null; }
+  if (m && m.docUrl) {
+    var member = indexBy(readTable('Members'))[t.memberId] || {};
+    var line = t.text + (member.name ? ' (' + member.name.split(' ')[0] + ')' : '');
+    try { removeTopicFromDoc(m.docUrl, line); } catch (e) { log(who, 'topic doc error', e.message); }
+  }
+  log(who, 'topic removed', t.meetingId + ': ' + t.text);
+  return { ok: true };
+}
+
+function removeTopicFromDoc(docUrl, line) {
+  var doc = DocumentApp.openByUrl(docUrl), body = doc.getBody(), headingIndex = -1;
+  for (var k = 0; k < body.getNumChildren(); k++) {
+    var el = body.getChild(k);
+    if (el.getType() === DocumentApp.ElementType.PARAGRAPH && el.asParagraph().getHeading() !== DocumentApp.ParagraphHeading.NORMAL &&
+        el.asParagraph().getText().trim() === 'Suggested by the team') { headingIndex = k; break; }
+  }
+  if (headingIndex < 0) return;
+  var items = [];
+  for (var i = headingIndex + 1; i < body.getNumChildren() && body.getChild(i).getType() === DocumentApp.ElementType.LIST_ITEM; i++) items.push(body.getChild(i).asListItem());
+  for (var j = 0; j < items.length; j++) {
+    if (items[j].getText().trim() === line) {
+      if (items.length === 1) items[j].setText('None yet.'); else items[j].removeFromParent();
+      break;
+    }
   }
   doc.saveAndClose();
 }
@@ -728,7 +796,7 @@ function sendDailyReminders() {
     var soon = open.filter(function (a) { return a.due && new Date(a.due) >= now && new Date(a.due) <= horizon; }).sort(byDue);
     var shown = {}; overdue.concat(soon).forEach(function (a) { shown[a.id] = true; });
     var fresh = open.filter(function (a) { return !shown[a.id] && a.assignedAt && new Date(a.assignedAt) > since && a.updatedBy !== m.id; }).sort(byDue);
-    var team = projectList.filter(function (p) { return p.status !== 'done' && p.due && new Date(p.due) >= now && new Date(p.due) <= horizon; }).sort(byDue);
+    var team = projectList.filter(function (p) { return p.status !== 'done' && p.due && isActive(p) && new Date(p.due) >= now && new Date(p.due) <= horizon; }).sort(byDue);
     if (!overdue.length && !soon.length && !fresh.length && !team.length) return;
 
     var item = function (a) {
@@ -764,7 +832,7 @@ function sendDailyReminders() {
     var late = open.filter(function (a) { return a.due && new Date(a.due) < now; });
     var upcoming = open.filter(function (a) { return a.due && new Date(a.due) >= now && new Date(a.due) <= week; });
     var doneRecent = assignments.filter(function (a) { return a.status === 'done' && a.updatedAt && new Date(a.updatedAt) >= lastRun; });
-    var teamWeek = projectList.filter(function (p) { return p.status !== 'done' && p.due && new Date(p.due) <= week; });
+    var teamWeek = projectList.filter(function (p) { return p.status !== 'done' && p.due && isActive(p) && new Date(p.due) <= week; });
     var row = function (a) {
       return emailItem(appUrl ? appUrl + '#/a/' + a.id : '', ((byMember[a.memberId] || {}).name || a.memberId).split(' ')[0] + ': ' + a.title, a.due ? relDay(new Date(a.due), now) + ' at ' + Utilities.formatDate(new Date(a.due), TZ, 'h:mm a') : '', '', '');
     };
