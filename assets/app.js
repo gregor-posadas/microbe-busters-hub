@@ -980,6 +980,34 @@
   if (window.matchMedia) { try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paintToggle); } catch (e) { /* old browsers */ } }
   paintToggle();
 
+  /* ---------- stay on the newest version ----------
+     GitHub Pages lets browsers cache files for up to 10 minutes, and Chrome sometimes holds them longer.
+     version.json is always fetched fresh; if it names a newer build than this one, the hub refreshes
+     the cached files and reloads (on first load), or offers a Reload button (when you come back to the tab). */
+  var BUILD = "20261001000519";
+  var lastVersionCheck = 0;
+  function checkVersion(onLoad) {
+    if (BUILD.indexOf("__") === 0) return;            // local copy without a stamp
+    lastVersionCheck = Date.now();
+    fetch("version.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.v || j.v === BUILD) return;
+      var tried = null; try { tried = sessionStorage.getItem("mb.reloadedFor"); } catch (e) { /* ignore */ }
+      if (onLoad && tried !== j.v) { refreshTo(j.v); return; }
+      var n = document.getElementById("update-notice");
+      if (!n) { n = document.createElement("div"); n.id = "update-notice"; n.className = "notice"; n.setAttribute("role", "status"); document.getElementById("notice").before(n); }
+      n.innerHTML = '<p><b>The hub was updated.</b> <button type="button" class="btn btn--quiet" id="reload-new">Reload to get the new version</button></p>';
+      document.getElementById("reload-new").addEventListener("click", function () { refreshTo(j.v); });
+    }).catch(function () { /* offline: keep going */ });
+  }
+  function refreshTo(v) {
+    try { sessionStorage.setItem("mb.reloadedFor", v); } catch (e) { /* ignore */ }
+    var urls = ["./", "index.html", "assets/app.js?v=" + v, "assets/styles.css?v=" + v, "assets/config.js?v=" + v];
+    Promise.all(urls.map(function (u) { return fetch(u, { cache: "reload" }).catch(function () {}); })).then(function () { location.reload(); });
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && Date.now() - lastVersionCheck > 5 * 60000) checkVersion(false);
+  });
+
   function start() {
     if (!state.demo && !store.get("code")) { main.innerHTML = viewGate(""); return; }
     main.innerHTML = skeleton();
@@ -988,5 +1016,6 @@
       main.innerHTML = '<div class="wrap"><div class="head"><h1 tabindex="-1">Couldn\'t load assignments</h1><p>' + esc(e.message || "The server didn't respond.") + ' Check your connection, then reload the page.</p><div class="actions"><button class="btn btn--solid" type="button" onclick="location.reload()">Reload</button></div></div></div>';
     });
   }
+  checkVersion(true);
   start();
 })();

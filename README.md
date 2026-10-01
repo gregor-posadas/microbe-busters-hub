@@ -75,3 +75,7 @@ You can also edit the Sheet by hand. Keep dates in the form `2026-10-06T23:59:00
 | `apps-script/` | Backend code to paste into Apps Script |
 | `data/demo.json` | Sample data used when no backend is connected |
 | `fonts/` | Atkinson Hyperlegible Next and its license |
+
+## Publishing changes
+
+Before each commit, run `sh scripts/stamp-version.sh` from the repo root. It writes a new version number into `version.json`, `index.html` and `assets/app.js`. Browsers then fetch the new files instead of cached ones, and anyone with the hub already open gets a **Reload to get the new version** bar when they come back to the tab. If you edit a file directly on GitHub instead, also bump the number in `version.json` by hand so open copies notice the change.
