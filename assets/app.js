@@ -189,7 +189,7 @@
       : apiGet();
     return p.then(function (d) {
       d.members = d.members || []; d.projects = d.projects || []; d.assignments = d.assignments || [];
-      d.milestones = d.milestones || []; d.files = d.files || []; d.meetings = d.meetings || []; d.topics = d.topics || [];
+      d.milestones = d.milestones || []; d.files = d.files || []; d.meetings = d.meetings || []; d.topics = d.topics || []; d.notes = d.notes || [];
       state.data = d; state.error = "";
       showNotice();
     });
@@ -622,11 +622,40 @@
   function viewMeetings() {
     var all = meetings(), next = nextMeeting(), now = new Date();
     var upcoming = all.filter(function (m) { return new Date(m.end || m.start) > now && m !== next; }).slice(0, 4);
-    var past = all.filter(function (m) { return new Date(m.end || m.start) <= now; }).reverse();
-    return '<div class="wrap"><div class="head"><h1 tabindex="-1">Meetings</h1><p>Weekly with our client on Google Meet. ' + esc(first(member(LEAD).name)) + " leads and sends the agenda, and " + esc(first(member(NOTES).name)) + " takes notes. Each meeting gets its own doc for the agenda and the notes.</p></div>" +
-      (next ? meetingCard(next, "Next meeting") + meetingDetail(next) : '<p class="empty">No meetings on the calendar.</p>') +
-      (upcoming.length ? '<section class="section" aria-labelledby="up-h"><h2 id="up-h">Coming up</h2><ul class="rows">' + upcoming.map(meetingRow).join("") + "</ul></section>" : "") +
-      (past.length ? '<section class="section"><details class="done-list"><summary>Past meetings (' + past.length + ")</summary><ul class=\"rows\">" + past.map(meetingRow).join("") + "</ul></details></section>" : "") + "</div>";
+    var notes = pastNotes();
+    return '<div class="wrap"><div class="head"><h1 tabindex="-1">Meetings</h1><p>Weekly with our client on Google Meet. ' + esc(first(member(LEAD).name)) + " leads and sends the agenda, and " + esc(first(member(NOTES).name)) + " takes notes. Each meeting gets its own doc for the agenda and the notes.</p>" +
+      '<nav class="jump" aria-label="On this page"><a href="#/meetings/next">Next meeting</a><a href="#/meetings/notes">Past meeting notes (' + notes.length + ')</a>' + (upcoming.length ? '<a href="#/meetings/upcoming">Coming up</a>' : "") + "</nav></div>" +
+      '<div id="next">' + (next ? meetingCard(next, "Next meeting") + meetingDetail(next) : '<p class="empty">No meetings on the calendar.</p>') + "</div>" +
+      notesSection(notes) +
+      (upcoming.length ? '<section class="section" id="upcoming" aria-labelledby="up-h"><h2 id="up-h">Coming up</h2><ul class="rows">' + upcoming.map(meetingRow).join("") + "</ul></section>" : "") + "</div>";
+  }
+
+  /* Past meeting notes: every dated doc in the Meetings folder (from the backend), plus past calendar meetings that have a doc. */
+  function pastNotes() {
+    var today = parts(new Date()), todayId = today.year + "-" + today.month + "-" + today.day, seen = {}, list = [];
+    function docId(u) { var m = /\/d\/([\w-]+)/.exec(u || ""); return m ? m[1] : u; }
+    (state.data.notes || []).forEach(function (n) { seen[docId(n.url)] = true; list.push(n); });
+    meetings().forEach(function (m) {
+      if (!m.docUrl || m.id > todayId || seen[docId(m.docUrl)]) return;
+      list.push({ id: m.id, date: m.id, title: "Meeting with " + CLIENT, takeaway: "", url: m.docUrl });
+    });
+    return list.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  }
+  function noteDate(iso) { var p = iso.split("-"); return fmtDay(new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], 20))); }
+  function notesSection(notes) {
+    var items = notes.map(function (n) {
+      var hay = (n.title + " " + n.takeaway + " " + noteDate(n.date) + " " + n.date).toLowerCase();
+      return '<li class="note" data-hay="' + esc(hay) + '"><a href="' + esc(safeUrl(n.url)) + '" target="_blank" rel="noopener">' +
+        '<span class="note__when">' + esc(noteDate(n.date)) + '</span><span class="note__main"><span class="note__title">' + iconFor(n.url, true) + esc(n.title) + "</span>" +
+        (n.takeaway ? '<span class="note__take"><b>Key takeaway:</b> ' + esc(n.takeaway) + "</span>" : '<span class="note__take note__take--none">No key takeaway written yet</span>') +
+        '</span><span class="note__go">Open the notes<span class="sr"> (opens in a new tab)</span></span></a></li>';
+    }).join("");
+    return '<section class="section" id="notes" aria-labelledby="notes-h"><h2 id="notes-h">Past meeting notes</h2>' +
+      '<p class="section__note">Newest first. Each one opens the meeting\'s Google Doc. Search covers the title and key takeaway.</p>' +
+      (notes.length > 2 ? '<div class="field notes-search"><label for="notes-q">Search past notes</label><input id="notes-q" type="search" autocomplete="off" placeholder="For example: Agrocalidad, survey, Sep 30"></div>' : "") +
+      (notes.length ? '<ul class="notes">' + items + '</ul><p class="empty" id="notes-none" hidden>No notes match that search.</p>'
+        : '<p class="empty">' + (state.demo ? "Notes from past meetings show up here once the Google Sheet backend is connected." : "No meeting notes yet. They appear here after each meeting.") + "</p>") +
+      (cfg.meetingsFolderUrl ? '<div class="actions"><a class="btn" href="' + esc(cfg.meetingsFolderUrl) + '" target="_blank" rel="noopener">' + gIcon("drive") + 'Open the Meetings folder<span class="sr"> (opens in a new tab)</span></a></div>' : "") + "</section>";
   }
 
   function viewMeeting(id) {
@@ -642,7 +671,7 @@
     var link = safeUrl(m.meetLink), s = new Date(m.start);
     return '<section class="next-meet" aria-label="Next meeting"><p><span class="next-meet__label">Next meeting</span> <a href="#/mt/' + esc(m.id) + '"><b>' + esc(fmtDay(s)) + ", " + esc(fmtTime(s)) + "</b></a> <span class=\"next-meet__rel\">" + esc(meetRel(m)) + "</span></p>" +
       '<div class="actions" style="margin-top:0">' + (link ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">' + gIcon("meet") + 'Join Google Meet<span class="sr"> (opens in a new tab)</span></a>' : "") +
-      '<a class="btn" href="#/mt/' + esc(m.id) + '">Agenda and topics</a></div></section>';
+      '<a class="btn" href="#/mt/' + esc(m.id) + '">Agenda and topics</a><a class="btn btn--quiet" href="#/meetings/notes">Past notes</a></div></section>';
   }
 
   function shareAgendaDialog(id) {
@@ -716,7 +745,7 @@
       faq("What emails will I get, and can I turn them down?", "<p>At most one reminder email a day, at 8 AM, and only on days when something of yours is due in the next 2 days, overdue, or newly assigned to you. Every item in it links straight to its page here. Overdue items come up the day after they're due, then every third day, not every morning. You also get the agenda email from " + esc(lead) + " before each meeting.</p><p>To change how often, open your page from <a href=\"#/\">Team</a> and scroll to Email reminders: Daily, Mondays only, or Off. Nothing is added to your personal Google Calendar. If you want a deadline there, open it here and click <b>Add to Google Calendar</b>.</p>") +
       faq("Where do I actually do the work?", "<p>In the Google Doc, Sheet or bCourses page linked from each assignment. The hub only tracks who is doing what and when. <a href=\"#/files\">Files</a> lists everything in the team Drive folder.</p>") +
       faq("How do I suggest a topic for a meeting?", "<p>Go to <a href=\"#/meetings\">Meetings</a>, type it under Suggest a topic, pick your name and click <b>Add topic</b>. It's added to the meeting doc under Suggested by the team, and " + esc(lead) + " decides what makes the agenda.</p>") +
-      faq("Where are the notes from past meetings?", "<p>On <a href=\"#/meetings\">Meetings</a>, open Past meetings. Each meeting has its own doc in the Meetings folder of the team Drive, named with its date so they sort in order.</p>") +
+      faq("Where are the notes from past meetings?", "<p>Go to <a href=\"#/meetings/notes\">Past meeting notes</a> on the Meetings page. It lists every meeting doc, newest first, with its key takeaway, and has a search box. Each one opens the Google Doc. They all live in the Meetings folder of the team Drive, named with their date.</p>") +
       faq("A meeting moved or got cancelled.", "<p>Change it in Google Calendar. " + esc(lead) + " owns the weekly event. The hub checks the calendar at 6 AM and 6 PM and updates the Meetings page on its own.</p>") +
       faq("I finished something that isn't on my list.", "<p>Great. Mention it to " + esc(pm) + " or at the next meeting so it can be added and counted.</p>") +
       faq("What is the team code, and what if I lose it?", "<p>It keeps the team's details private. You enter it once on each device. If you lose it, ask " + esc(pm) + ". Please don't share it outside the team.</p>") +
@@ -762,6 +791,7 @@
     if (route._moved && h1) h1.focus({ preventScroll: true });
     route._moved = true;
     window.scrollTo(0, 0);
+    if (view === "meetings" && h[1]) { var sec = document.getElementById(h[1]); if (sec) { sec.scrollIntoView(); var hd = sec.querySelector("h2"); if (hd) { hd.setAttribute("tabindex", "-1"); hd.focus({ preventScroll: true }); } } }
     if (view === "m" && h[2] === "email") { var em = document.getElementById("email-h"); if (em) { em.scrollIntoView(); em.focus({ preventScroll: true }); } }
   }
 
@@ -917,6 +947,12 @@
     }
   });
   document.addEventListener("input", function (ev) {
+    if (ev.target.id === "notes-q") {
+      var nq = ev.target.value.trim().toLowerCase(), shown = 0;
+      document.querySelectorAll(".notes .note").forEach(function (li) { var hit = !nq || li.getAttribute("data-hay").indexOf(nq) > -1; li.hidden = !hit; if (hit) shown++; });
+      var none = document.getElementById("notes-none"); if (none) none.hidden = shown > 0;
+      return;
+    }
     if (ev.target.id !== "file-q") return;
     var q = ev.target.value.trim().toLowerCase();
     document.querySelectorAll(".files li").forEach(function (li) { li.hidden = q && li.getAttribute("data-name").indexOf(q) === -1; });
@@ -984,7 +1020,7 @@
      GitHub Pages lets browsers cache files for up to 10 minutes, and Chrome sometimes holds them longer.
      version.json is always fetched fresh; if it names a newer build than this one, the hub refreshes
      the cached files and reloads (on first load), or offers a Reload button (when you come back to the tab). */
-  var BUILD = "20261001000519";
+  var BUILD = "20261002014853";
   var lastVersionCheck = 0;
   function checkVersion(onLoad) {
     if (BUILD.indexOf("__") === 0) return;            // local copy without a stamp

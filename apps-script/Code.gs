@@ -256,6 +256,7 @@ function payload() {
     meetings: readTable('Meetings').sort(function (a, b) { return a.start < b.start ? -1 : 1; }),
     topics: readTable('Topics'),
     files: listFiles(),
+    notes: meetingNotes(),
     generated: cell(new Date())
   };
 }
@@ -719,6 +720,57 @@ function shareAgenda(meetingId, includeClient, who) {
   if (job && job.status !== 'done') { job.status = 'done'; job.updatedAt = cell(new Date()); job.updatedBy = who; writeRow('Assignments', job); }
   log(who, 'agenda shared', m.id + ' to ' + to.length);
   return { ok: true, meeting: m, sentTo: to.length, assignment: job };
+}
+
+/* ------------------------------------------------------------------ meeting notes archive */
+
+/**
+ * Every dated doc in the Meetings folder (any meeting, not just the weekly one), newest first,
+ * with its title and Key takeaway. A doc is only re-read when it changes, and the list is cached for 5 minutes.
+ */
+function meetingNotes() {
+  var cache = CacheService.getScriptCache(), hit = cache.get('notes');
+  if (hit) return JSON.parse(hit);
+  var folderId = setting('MEETINGS_FOLDER_ID');
+  if (!folderId) return [];
+  var props = PropertiesService.getScriptProperties(), store = {};
+  try { store = JSON.parse(props.getProperty('NOTES_INDEX') || '{}'); } catch (e) { store = {}; }
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), out = [], keep = {};
+  var files = DriveApp.getFolderById(folderId).getFiles();
+  while (files.hasNext()) {
+    var f = files.next(), m = /^(\d{4}-\d{2}-\d{2})\s*(.*)$/.exec(f.getName());
+    if (!m || m[1] > today || f.getMimeType() !== MimeType.GOOGLE_DOCS) continue;
+    var id = f.getId(), updated = cell(f.getLastUpdated()), info = store[id];
+    if (!info || info.u !== updated) { try { info = summarizeNotes(id); } catch (e) { info = {}; } info.u = updated; }
+    keep[id] = info;
+    out.push({ id: id, date: m[1], title: info.t || m[2], takeaway: info.k || '', url: f.getUrl(), modified: updated });
+  }
+  try { props.setProperty('NOTES_INDEX', JSON.stringify(keep)); } catch (e) { /* too big to keep; it will just re-read */ }
+  out.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  try { cache.put('notes', JSON.stringify(out), 300); } catch (e) { /* too big to cache */ }
+  return out;
+}
+
+/** The doc's title line and the text under its "Key takeaway" heading (placeholders in [brackets] are skipped). */
+function summarizeNotes(id) {
+  var body = DocumentApp.openById(id).getBody(), title = '', take = [], inTake = false;
+  for (var i = 0; i < body.getNumChildren(); i++) {
+    var el = body.getChild(i), type = el.getType();
+    if (type !== DocumentApp.ElementType.PARAGRAPH && type !== DocumentApp.ElementType.LIST_ITEM) continue;
+    var text = (type === DocumentApp.ElementType.PARAGRAPH ? el.asParagraph().getText() : el.asListItem().getText()).trim();
+    var heading = type === DocumentApp.ElementType.PARAGRAPH ? el.asParagraph().getHeading() : DocumentApp.ParagraphHeading.NORMAL;
+    if (heading !== DocumentApp.ParagraphHeading.NORMAL) {
+      if (!title && (heading === DocumentApp.ParagraphHeading.HEADING1 || heading === DocumentApp.ParagraphHeading.TITLE)) {
+        title = text.replace(/^\d{4}-\d{2}-\d{2}\s*[\u00b7\-\u2013:]?\s*/, '');
+      }
+      if (inTake) break;
+      inTake = /^key takeaway/i.test(text);
+      continue;
+    }
+    if (inTake && text && text.charAt(0) !== '[') take.push(text);
+  }
+  var k = take.join(' ');
+  return { t: title.slice(0, 120), k: k.length > 300 ? k.slice(0, 297) + '...' : k };
 }
 
 /* ------------------------------------------------------------------ Drive */

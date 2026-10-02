@@ -4,6 +4,7 @@ window.MB_CONFIG = {
   apiUrl: "https://script.google.com/macros/s/AKfycbzXAHfjeTcBP3YtO5yUFegoFo8hpV0VAVa2iY0EwcWr3ysHVc9tm7J2raYF4Jk8XXlo/exec",
   timeZone: "America/Los_Angeles",
   driveFolderUrl: "https://drive.google.com/drive/folders/111V21adIMD5Vjv86bWAcW2S52mSYr8FY",
+  meetingsFolderUrl: "https://drive.google.com/drive/folders/1k2vkJJf-pYnd7YWXDp-FBlHh8pFhvqfz",
   pmMemberId: "gregor",
   clientName: "Christopher",
   // Fall 2026 at Berkeley: instruction begins Aug 26, the semester ends Dec 18 (registrar's academic calendar)

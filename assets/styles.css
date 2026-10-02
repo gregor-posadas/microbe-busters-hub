@@ -442,3 +442,20 @@ h2[tabindex="-1"]:focus { outline: none; }
   .loading-msg::after { content: "..."; }
 }
 h1[tabindex="-1"]:focus { outline: none; }
+
+/* Meetings: jump links and the notes archive */
+.jump { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 14px; }
+.jump a { min-height: var(--tap); display: inline-flex; align-items: center; font-weight: 700; }
+.notes-search { max-width: 28rem; margin: 16px 0 8px; }
+.notes { list-style: none; margin: 8px 0 0; padding: 0; }
+.note { border-bottom: 1px solid var(--rule); }
+.note a { display: grid; grid-template-columns: 9rem 1fr auto; gap: 6px 20px; padding: 16px 4px; text-decoration: none; align-items: start; }
+.note a:hover { background: var(--sunk); }
+.note a:hover .note__title { text-decoration: underline; }
+.note__when { font-weight: 700; }
+.note__main { display: grid; gap: 4px; min-width: 0; }
+.note__title { font-weight: 700; font-size: var(--f2); display: inline-flex; align-items: center; }
+.note__take { color: var(--ink-2); max-width: var(--read); }
+.note__take--none { font-style: italic; }
+.note__go { font-weight: 700; text-decoration: underline; white-space: nowrap; }
+@media (max-width: 719px) { .note a { grid-template-columns: 1fr; } .note__go { justify-self: start; } }
