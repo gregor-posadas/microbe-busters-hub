@@ -45,7 +45,8 @@ var MEETING_STEPS = {
     '- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n' +
     '- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.',
   notes: '- During the meeting, take notes in the meeting doc under Discussion points, Decisions and Action items.\n' +
-    '- Within 24 hours, merge the Meetily summary and give every action item an owner and a due date.\n' +
+    '- In the wrap-up, read back the action items and say the key takeaway out loud so the group can agree on it.\n' +
+    '- By noon the next day, merge the Meetily summary, give every action item an owner and a due date, and write the key takeaway (one or two sentences) under Key takeaway. It shows up in Past meeting notes in the hub.\n' +
     '- Tell Gregor which action items should become assignments in the hub.'
 };
 function setting(key) {

@@ -733,7 +733,7 @@
       '<section class="section" aria-labelledby="how-h"><h2 id="how-h">How to use it</h2><div class="about-roles">' +
       role("Everyone", ["On <a href=\"#/\">Team</a>, tap your name. You'll see what's overdue, what's due in the next 7 days, and what's later.", "Open an assignment for the steps, the due date and a button to the right Google Doc.", "When you start, set it to <b>In progress</b>. When you finish, set it to <b>Done</b>. Everyone sees the change right away.", "Got something for the next meeting? Add it on <a href=\"#/meetings\">Meetings</a> under Suggest a topic."]) +
       role(esc(lead) + ", meeting lead", ["About a week before each meeting, the hub makes the meeting doc with the date, Meet link and next meeting filled in, and gives you an agenda assignment.", "Open the doc from <a href=\"#/meetings\">Meetings</a> and list 3 to 5 topics in the Agenda section, each with who leads it and how long.", "Look under Suggested by the team for topics people added, and move in the ones you want.", "Click <b>Share the agenda</b> on the Meetings page. It emails everyone and ticks off your assignment."]) +
-      role(esc(notes) + ", note-taker", ["Take notes in the same meeting doc, under Discussion points, Decisions and Action items.", "Within 24 hours, merge the Meetily summary and give every action item an owner and a due date.", "Tell " + esc(pm) + " which action items should become assignments here."]) +
+      role(esc(notes) + ", note-taker", ["Take notes in the same meeting doc, under Discussion points, Decisions and Action items.", "In the wrap-up, read back the action items and the key takeaway so the group can agree on it.", "By noon the next day, merge the Meetily summary, give every action item an owner and a due date, and write the key takeaway. It shows up under Past meeting notes.", "Tell " + esc(pm) + " which action items should become assignments here."]) +
       role(esc(pm) + ", project manager", ["Use <a href=\"#/pm\">Project view</a> to see everything by project and filter by person or status.", "Add assignments there or from a team deadline's page. One assignment can go to several people, each with their own steps.", "Your code is only needed for adding, editing and deleting. Every morning you get a summary email."]) +
       "</div></section>" +
       '<section class="section" aria-labelledby="sym-h"><h2 id="sym-h">What the symbols mean</h2><p class="section__note">Each status has its own shape and word, so color is never the only clue.</p><ul class="legend">' + legend + "</ul></section>" +
@@ -1020,7 +1020,7 @@
      GitHub Pages lets browsers cache files for up to 10 minutes, and Chrome sometimes holds them longer.
      version.json is always fetched fresh; if it names a newer build than this one, the hub refreshes
      the cached files and reloads (on first load), or offers a Reload button (when you come back to the tab). */
-  var BUILD = "20261002014853";
+  var BUILD = "20261002015507";
   var lastVersionCheck = 0;
   function checkVersion(onLoad) {
     if (BUILD.indexOf("__") === 0) return;            // local copy without a stamp
