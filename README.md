@@ -33,11 +33,11 @@ Some university Google accounts only allow web apps for people signed in to that
 
 ## Meetings
 
-- The hub reads the event called **Microbe Busters and Christopher Weekly Meeting** from the Google Calendar of whoever deployed the backend. Mary owns the event, so moves and cancellations there flow into the hub at 6 AM and 6 PM (or right away with **Refresh meetings from Google Calendar** in Project view).
-- A week before each meeting, the hub copies **_Master for automatic meeting docs** in the Meetings folder into a new doc named with the meeting date, the same way as last week's doc. It fills in the date, time, Meet link, agenda due time, next meeting and a link to last meeting's notes, then gives Mary an agenda assignment (due 9 PM the day before) and Leakey a notes assignment (due noon the day after).
+- The hub reads the event called **Microbe Busters and Christopher Weekly Meeting** from the Google Calendar of whoever deployed the backend. Muthoni owns the event, so moves and cancellations there flow into the hub at 6 AM and 6 PM (or right away with **Refresh meetings from Google Calendar** in Project view).
+- A week before each meeting, the hub copies **_Master for automatic meeting docs** in the Meetings folder into a new doc named with the meeting date, the same way as last week's doc. It fills in the date, time, Meet link, agenda due time, next meeting and a link to last meeting's notes, then gives Muthoni an agenda assignment (due 9 PM the day before) and Leakey a notes assignment (due noon the day after).
 - To change what every meeting doc looks like, edit the master doc. Keep the placeholders in double braces: `{{DATE}}`, `{{WHEN}}`, `{{MEET}}`, `{{AGENDA_DUE}}`, `{{NEXT_WHEN}}` and `{{PREV_LINK}}`, and keep the headings **Agenda** and **Suggested by the team**, because topic suggestions and the agenda email look for them.
 - **Suggest a topic** on the Meetings page adds a bullet under Suggested by the team in that meeting's doc.
-- **Share the agenda** emails the numbered list from the doc's Agenda section to the team (and to the client if the box is ticked), with the Meet link, and marks Mary's agenda assignment done.
+- **Share the agenda** emails the numbered list from the doc's Agenda section to the team (and to the client if the box is ticked), with the Meet link, and marks Muthoni's agenda assignment done.
 - Settings such as the event title, the master doc, the folder, and the meeting lead and note-taker are at the top of `Code.gs` in `MEETING_DEFAULTS`. The client's email comes from the calendar event's guests, so it isn't stored in this repository. Any of them can be overridden in **Script properties** without editing code.
 
 ## Using it
@@ -46,7 +46,7 @@ Some university Google accounts only allow web apps for people signed in to that
 - **Project manager:** open **Project view**. The first edit asks for the project manager code, which the browser then remembers until you choose **Forget the project manager code on this device**. From there you can add an assignment for one or several people at once (each gets their own instructions), edit or delete assignments, add projects, and send reminders on demand.
 - **Team deadlines:** class assignments and other whole-team due dates. They show on the milestone line on the Team page and at the bottom of everyone's list. Each one has its own page with what the class asks for, an **Open on bCourses** button, and who is doing which part. Once the team turns it in, anyone can click **Mark as submitted** so it drops off everyone's list.
 - **Deliverables:** what we owe Christopher (agreed, not confirmed yet, on hold) kept apart from DevEng C200 assignments. Everywhere else, client work carries a filled **For Christopher** tag and class work an outlined **DevEng C200** tag.
-- **Meetings:** the next meeting with **Join Google Meet** and the agenda and notes doc, Mary's three steps, suggested topics, and past meetings' notes.
+- **Meetings:** the next meeting with **Join Google Meet** and the agenda and notes doc, Muthoni's three steps, suggested topics, and past meetings' notes.
 - **Light and dark mode:** the site follows the device's setting; the button at the top right switches and remembers the choice. Light mode uses a warm off-white.
 - **About:** how each role uses the hub, what the symbols mean, and answers to common questions.
 - **Files:** lists what is in the team Drive folder, grouped by subfolder, with search.

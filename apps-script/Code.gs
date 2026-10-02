@@ -31,7 +31,7 @@ var MEETING_DEFAULTS = {
   MEETING_MASTER_ID: '1Cw9RMtWelybUkrg_wwWCD6TyIWHJOeFH2UzqBmJDxYc', // "_Master for automatic meeting docs"
   MEETINGS_FOLDER_ID: '1k2vkJJf-pYnd7YWXDp-FBlHh8pFhvqfz',           // Meetings folder in the team Drive
   MEETING_DOC_NAME: '',   // docs are named "<date> <this>"; empty = reuse the name of last meeting's doc
-  MEETING_LEAD: 'mary',
+  MEETING_LEAD: 'muthoni',
   NOTE_TAKER: 'leakey',
   CLIENT_EMAIL: '',       // empty = the meeting's calendar guests who aren't on the team
   MEET_LINK: '',          // used only if the calendar event has no Meet link
@@ -472,7 +472,7 @@ function syncMeetings() {
   list.forEach(function (m, i) {
     var start = new Date(m.start);
     if (!m.docUrl && start > now && start <= horizon) prepareMeeting(m, list[i - 1], list[i + 1]);
-    if (start > now) ensureAgendaJob(m);   // Mary's agenda job exists for every upcoming meeting, not just the next one
+    if (start > now) ensureAgendaJob(m);   // Muthoni's agenda job exists for every upcoming meeting, not just the next one
   });
   return list;
 }
@@ -693,7 +693,7 @@ function agendaLines(docUrl) {
   return out;
 }
 
-/** Mary's button: emails the agenda to the team (and Christopher if asked) and marks her agenda job done. */
+/** Muthoni's button: emails the agenda to the team (and Christopher if asked) and marks her agenda job done. */
 function shareAgenda(meetingId, includeClient, who) {
   var m = findMeeting(meetingId);
   if (!m.docUrl) throw new Error('The doc for this meeting is not ready yet.');

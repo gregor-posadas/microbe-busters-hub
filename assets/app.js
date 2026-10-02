@@ -16,6 +16,15 @@
     set: function (k, v) { try { window.localStorage.setItem("mb." + k, v); } catch (e) { /* private mode */ } },
     del: function (k) { try { window.localStorage.removeItem("mb." + k); } catch (e) { /* ignore */ } }
   };
+  // Renamed people: old ids in saved settings and old links still work.
+  var RENAMED = { mary: "muthoni" };
+  if (RENAMED[store.get("me")]) store.set("me", RENAMED[store.get("me")]);
+  function renamedHash(h) {
+    if ((h[0] !== "m" && h[0] !== "a") || !h[1]) return "";
+    if (byId(h[0] === "m" ? state.data.members : state.data.assignments, h[1])) return "";
+    var id = h[1].split("-").map(function (part) { return RENAMED[part] || part; }).join("-");
+    return id === h[1] ? "" : "#/" + [h[0], id].concat(h.slice(2)).join("/");
+  }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -536,7 +545,7 @@
   }
 
   /* ---------- meetings ---------- */
-  var LEAD = cfg.meetingLead || "mary", NOTES = cfg.noteTaker || "leakey";
+  var LEAD = cfg.meetingLead || "muthoni", NOTES = cfg.noteTaker || "leakey";
   function meetings() { return state.data.meetings.slice().sort(function (a, b) { return new Date(a.start) - new Date(b.start); }); }
   function nextMeeting() { var now = new Date(); return meetings().filter(function (m) { return new Date(m.end || m.start) > now; })[0] || null; }
   function meetingById(id) { return byId(state.data.meetings, id); }
@@ -774,6 +783,8 @@
       if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
     if (!state.data) return;
+    var moved = renamedHash(h);
+    if (moved) { location.replace(moved); return; }
     var html, title = "Microbe Busters Hub";
     if (view === "m") { html = viewMember(h[1]); title = member(h[1]).name + ", assignments"; }
     else if (view === "a") { var a = byId(state.data.assignments, h[1]); html = viewAssignment(h[1]); if (a) title = a.title; }
@@ -1020,7 +1031,7 @@
      GitHub Pages lets browsers cache files for up to 10 minutes, and Chrome sometimes holds them longer.
      version.json is always fetched fresh; if it names a newer build than this one, the hub refreshes
      the cached files and reloads (on first load), or offers a Reload button (when you come back to the tab). */
-  var BUILD = "20261002015507";
+  var BUILD = "20261002020354";
   var lastVersionCheck = 0;
   function checkVersion(onLoad) {
     if (BUILD.indexOf("__") === 0) return;            // local copy without a stamp

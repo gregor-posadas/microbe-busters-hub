@@ -28,8 +28,8 @@
    "emailPref": "daily"
   },
   {
-   "id": "mary",
-   "name": "Mary",
+   "id": "muthoni",
+   "name": "Muthoni",
    "email": "",
    "role": "Meeting lead",
    "color": "#E7B800",
@@ -305,9 +305,9 @@
    "assignedAt": ""
   },
   {
-   "id": "dp-mary",
+   "id": "dp-muthoni",
    "projectId": "discovery",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Format and proofread the Discovery Plan",
    "instructions": "- Make every section use the same headings, spacing and list style.\n- Proofread for typos and consistent wording.\n- Check that references and links work.",
    "due": "2026-10-01T17:00:00-07:00",
@@ -380,9 +380,9 @@
    "assignedAt": ""
   },
   {
-   "id": "g-mary",
+   "id": "g-muthoni",
    "projectId": "guide",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Find sources on post-harvest washing and buyer groups",
    "instructions": "- Find 2 or 3 useful sources on better ways to wash produce than drinking water, and how buyer groups or cooperatives help.\n- Focus on what has worked outside Ecuador.\n- Under your section in the research doc, add each link with a 2 to 3 sentence summary: what it found, where, and whether it would work for small farms near Quito.",
    "due": "2026-10-06T23:59:00-07:00",
@@ -500,9 +500,9 @@
    "assignedAt": ""
   },
   {
-   "id": "c-mary-learnings",
+   "id": "c-muthoni-learnings",
    "projectId": "conduct",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Draft our answers to the class discussion questions",
    "instructions": "- Read the survey responses (Form, Responses tab) and the notes in the discovery log.\n- In the learnings doc, answer the five questions with 2 to 4 bullets each.\n- Pick the two or three points we should present in the team project update.",
    "due": "2026-10-08T17:00:00-07:00",
@@ -545,9 +545,9 @@
    "assignedAt": ""
   },
   {
-   "id": "b-mary-boxes",
+   "id": "b-muthoni-boxes",
    "projectId": "business",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Draft your canvas boxes: mission, value, impact, PESTEL",
    "instructions": "- In the working doc, fill in Social mission, Social value proposition, Social impact measurement strategy and Macro-environment (PESTEL).\n- 3 to 6 bullets per box. If we have two model ideas, cover both.\n- We'll go through everyone's boxes at the Oct 28 meeting.",
    "due": "2026-10-27T23:59:00-07:00",
@@ -590,9 +590,9 @@
    "assignedAt": ""
   },
   {
-   "id": "b-mary-mural",
+   "id": "b-muthoni-mural",
    "projectId": "business",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Put the canvas together in Mural",
    "instructions": "- Open the Mural template from the [bCourses assignment page](https://bcourses.berkeley.edu/courses/1556923/assignments/9108478).\n- Copy everyone's boxes from the working doc into the 14 boxes. Make one canvas per model if we kept two.\n- Paste the Mural link at the top of the working doc.",
    "due": "2026-11-01T23:59:00-08:00",
@@ -680,9 +680,9 @@
    "assignedAt": ""
   },
   {
-   "id": "u-mary-slide",
+   "id": "u-muthoni-slide",
    "projectId": "update",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Draft the user discovery slide for the project update",
    "instructions": "- One slide: what we learned from user discovery and what got in the way. The class asks for both.\n- Pull from the learnings doc you drafted for the Oct 9 assignment.\n- Keep it to about a minute when spoken. Put your talking points in the speaker notes.",
    "due": "2026-10-20T23:59:00-07:00",
@@ -727,7 +727,7 @@
   {
    "id": "m-2026-10-07-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Oct 7 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-10-06T21:00:00-07:00",
@@ -757,7 +757,7 @@
   {
    "id": "m-2026-10-14-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Oct 14 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-10-13T21:00:00-07:00",
@@ -772,7 +772,7 @@
   {
    "id": "m-2026-10-21-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Oct 21 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-10-20T21:00:00-07:00",
@@ -787,7 +787,7 @@
   {
    "id": "m-2026-10-28-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Oct 28 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-10-27T21:00:00-07:00",
@@ -802,7 +802,7 @@
   {
    "id": "m-2026-11-04-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Nov 4 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-11-03T21:00:00-08:00",
@@ -817,7 +817,7 @@
   {
    "id": "m-2026-11-11-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Nov 11 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-11-10T21:00:00-08:00",
@@ -832,7 +832,7 @@
   {
    "id": "m-2026-11-18-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Nov 18 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-11-17T21:00:00-08:00",
@@ -847,7 +847,7 @@
   {
    "id": "m-2026-11-25-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Nov 25 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-11-24T21:00:00-08:00",
@@ -862,7 +862,7 @@
   {
    "id": "m-2026-12-02-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Dec 2 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-12-01T21:00:00-08:00",
@@ -877,7 +877,7 @@
   {
    "id": "m-2026-12-09-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Dec 9 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-12-08T21:00:00-08:00",
@@ -892,7 +892,7 @@
   {
    "id": "m-2026-12-16-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Dec 16 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-12-15T21:00:00-08:00",
@@ -907,7 +907,7 @@
   {
    "id": "m-2026-12-23-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Dec 23 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-12-22T21:00:00-08:00",
@@ -922,7 +922,7 @@
   {
    "id": "m-2026-12-30-agenda",
    "projectId": "meetings",
-   "memberId": "mary",
+   "memberId": "muthoni",
    "title": "Prep and share the agenda for the Dec 30 meeting",
    "instructions": "- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n- Prep: skim last meeting's notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n- Look at the topics the team suggested under Suggested by the team.\n- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.",
    "due": "2026-12-29T21:00:00-08:00",
