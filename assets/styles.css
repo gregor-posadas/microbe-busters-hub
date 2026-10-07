@@ -459,3 +459,8 @@ h1[tabindex="-1"]:focus { outline: none; }
 .note__take--none { font-style: italic; }
 .note__go { font-weight: 700; text-decoration: underline; white-space: nowrap; }
 @media (max-width: 719px) { .note a { grid-template-columns: 1fr; } .note__go { justify-self: start; } }
+
+/* Weekly rhythm: firm deadlines get a text tag (not color alone); aim-for dates get a gentle note */
+.firm { display: inline-flex; align-items: center; font-size: var(--f1); font-weight: 700; padding: 0 6px; border: 2px solid currentColor; border-radius: 3px; line-height: 1.5; }
+.due-block__note { margin-top: 6px; font-size: var(--f1); color: var(--ink-2); max-width: 22rem; }
+.week-note { max-width: var(--read); margin: 0 0 8px; }
