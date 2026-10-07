@@ -10,15 +10,16 @@
  *  - Saves status changes and project manager edits back to the Sheet.
  *  - Keeps every assignment and team deadline on one shared "Microbe Busters deadlines"
  *    calendar, without inviting anyone.
- *  - Emails a reminder every morning to anyone with work due within 2 days or overdue,
- *    plus a summary for the project manager.
+ *  - Emails reminders on a weekly rhythm: a Monday email with each person's week, and a
+ *    midweek heads-up only when something can't wait (see "reminders" below). People can
+ *    switch to daily emails or turn them off. The project manager gets a team summary.
  */
 
 var TZ = 'America/Los_Angeles';
 var TABS = {
   Members: ['id', 'name', 'email', 'role', 'color', 'textColor', 'emailPref'],
   Projects: ['id', 'name', 'due', 'link', 'description', 'courseLink', 'status', 'calendarEventId', 'audience', 'scope'],
-  Assignments: ['id', 'projectId', 'memberId', 'title', 'instructions', 'due', 'link', 'linkLabel', 'status', 'updatedAt', 'updatedBy', 'calendarEventId', 'assignedAt'],
+  Assignments: ['id', 'projectId', 'memberId', 'title', 'instructions', 'due', 'link', 'linkLabel', 'status', 'updatedAt', 'updatedBy', 'calendarEventId', 'assignedAt', 'firm'],
   Milestones: ['date', 'label', 'dateLabel', 'projectId'],
   Meetings: ['id', 'start', 'end', 'title', 'meetLink', 'docUrl', 'agendaSharedAt', 'agendaSharedBy', 'eventId'],
   Topics: ['id', 'meetingId', 'text', 'memberId', 'createdAt'],
@@ -173,7 +174,7 @@ function doPost(e) {
         return json({ ok: true, meetings: syncMeetings() });
       case 'sendReminders':
         checkCode(b.pmCode, 'pm');
-        return json({ ok: true, sent: sendDailyReminders() });
+        return json({ ok: true, sent: sendDailyReminders(true) });
       default:
         throw new Error('Unknown action.');
     }
@@ -247,7 +248,7 @@ function log(who, action, detail) {
 
 function payload() {
   var members = readTable('Members').map(function (m) {
-    return { id: m.id, name: m.name, email: m.email, role: m.role, color: m.color, textColor: m.textColor, emailPref: m.emailPref || 'daily' };
+    return { id: m.id, name: m.name, email: m.email, role: m.role, color: m.color, textColor: m.textColor, emailPref: EMAIL_PREFS.indexOf(m.emailPref) > -1 ? m.emailPref : 'weekly' };
   });
   return {
     members: members,
@@ -294,7 +295,8 @@ function saveAssignments(list, who) {
       updatedAt: cell(new Date()),
       updatedBy: who,
       calendarEventId: existing ? existing.calendarEventId : '',
-      assignedAt: existing && existing.memberId === input.memberId && existing.assignedAt ? existing.assignedAt : cell(new Date())
+      assignedAt: existing && existing.memberId === input.memberId && existing.assignedAt ? existing.assignedAt : cell(new Date()),
+      firm: input.firm === 'yes' || input.firm === true ? 'yes' : input.firm === 'no' || input.firm === false ? 'no' : (existing ? existing.firm || '' : '')
     };
     // A new person or a new due date means a fresh invite.
     if (existing && existing.memberId !== a.memberId) { removeEvent(existing.calendarEventId); a.calendarEventId = ''; }
@@ -555,7 +557,7 @@ function ensureAgendaJob(m) {
   if (a && a.status === 'done') return a;
   var changed = !a;
   a = a || { id: id, projectId: 'meetings', memberId: setting('MEETING_LEAD'), instructions: MEETING_STEPS.agenda, link: '', linkLabel: '',
-    status: 'todo', updatedAt: cell(new Date()), updatedBy: 'hub', calendarEventId: '', assignedAt: cell(new Date()) };
+    status: 'todo', updatedAt: cell(new Date()), updatedBy: 'hub', calendarEventId: '', assignedAt: cell(new Date()), firm: 'yes' };
   var title = 'Prep and share the agenda for the ' + Utilities.formatDate(start, TZ, 'MMM d') + ' meeting';
   if (a.title !== title) { a.title = title; changed = true; }
   if (a.due !== due) { a.due = due; changed = true; }
@@ -825,93 +827,167 @@ function fileType(mime) {
 /* ------------------------------------------------------------------ reminders */
 
 /*
- * Reminder emails, Canvas style but quiet:
- *  - At most one email per person per day (8 AM), and none on days with nothing to say.
- *  - Each item links straight to its page in the hub.
- *  - Overdue items come up the day after they're due, then every third day, not daily.
- *  - Each person picks Daily (default), Weekly (Monday mornings) or Off on their own page.
+ * Deadlines run on a weekly rhythm:
+ *  - Most assignments are "aim for" dates. They count as on time if they're done by the end
+ *    of their week (Sunday night), so nobody is nagged about a Tuesday target on Wednesday.
+ *  - Firm deadlines (class submissions, meeting agendas, anything marked Firm) are late as
+ *    soon as the time passes.
+ *
+ * Reminder emails, quiet by default:
+ *  - Weekly (the default): one email Monday at 8 AM with the week ahead, anything carried
+ *    over, and what's new. Midweek, only a short heads-up when new work lands that's due
+ *    before next Monday, or a firm deadline is less than a day away.
+ *  - Daily: at most one email a day, only when something is due in the next 2 days, late
+ *    (repeated every third day, not daily) or new.
+ *  - Off: nothing.
+ * The project manager's team summary follows the project manager's own setting.
  */
-var EMAIL_PREFS = ['daily', 'weekly', 'off'];
+var EMAIL_PREFS = ['weekly', 'daily', 'off'];
+var DAYMS = 86400000;
 
-/** Runs every morning at 8 AM (set up by setup()). Returns the number of emails sent. */
-function sendDailyReminders() {
+/** Firm deadlines: marked Firm, or (when not set either way) bCourses submissions and meeting agendas. */
+function isFirm(a) {
+  if (a.firm === 'yes') return true;
+  if (a.firm === 'no') return false;
+  return /^submit\b/i.test(a.title || '') || /^m-.*-agenda$/.test(a.id || '');
+}
+/** Monday-based week number for a date in the team's time zone. */
+function weekNum(d) { return Math.floor((dayNum(d) + 3) / 7); }
+/** Late: firm ones once the time passes; the rest once their week (Mon–Sun) is over. */
+function isLate(a, now) {
+  if (!a.due || a.status === 'done') return false;
+  var d = new Date(a.due);
+  return isFirm(a) ? d < now : weekNum(d) < weekNum(now);
+}
+/** 8 AM next Monday: the end of this week's window (on a Monday, that's a week from today). */
+function nextMonday(now) {
+  var add = (8 - Number(Utilities.formatDate(now, TZ, 'u'))) % 7 || 7;
+  return new Date(atTime(new Date(now.getTime() + add * DAYMS), '08:00'));
+}
+
+/**
+ * Runs every morning at 8 AM (set up by setup()). Returns the number of emails sent.
+ * force = true (the "Send reminders now" button) sends Weekly people their full weekly email today.
+ */
+function sendDailyReminders(force) {
   var props = PropertiesService.getScriptProperties();
   var appUrl = props.getProperty('APP_URL') || '';
   var members = readTable('Members'), assignments = readTable('Assignments');
   var projectList = readTable('Projects'), projects = indexBy(projectList);
-  var now = new Date(), DAYMS = 86400000;
+  var now = new Date();
   var lastRun = props.getProperty('LAST_DIGEST') ? new Date(props.getProperty('LAST_DIGEST')) : new Date(now.getTime() - DAYMS);
   var isMonday = Utilities.formatDate(now, TZ, 'u') === '1';
-  var today = dayNum(now);
+  var today = dayNum(now), thisWeek = weekNum(now);
+  var weekEnd = nextMonday(now);
+  var byDue = function (a, b) { return new Date(a.due) - new Date(b.due); };
   var sent = 0;
 
-  members.forEach(function (m) {
-    var pref = EMAIL_PREFS.indexOf(m.emailPref) > -1 ? m.emailPref : 'daily';
-    if (!m.email || pref === 'off' || (pref === 'weekly' && !isMonday)) return;
-    var horizon = new Date(now.getTime() + (pref === 'weekly' ? 7 : 2) * DAYMS);
-    var since = pref === 'weekly' ? new Date(now.getTime() - 7 * DAYMS) : lastRun;
-    var open = assignments.filter(function (a) { return a.memberId === m.id && a.status !== 'done'; });
-    var byDue = function (a, b) { return new Date(a.due) - new Date(b.due); };
-    var overdue = open.filter(function (a) {
-      if (!a.due || new Date(a.due) >= now) return false;
-      var late = today - dayNum(new Date(a.due));
-      return pref === 'weekly' || late <= 1 || late % 3 === 0;
-    }).sort(byDue);
-    var soon = open.filter(function (a) { return a.due && new Date(a.due) >= now && new Date(a.due) <= horizon; }).sort(byDue);
-    var shown = {}; overdue.concat(soon).forEach(function (a) { shown[a.id] = true; });
-    var fresh = open.filter(function (a) { return !shown[a.id] && a.assignedAt && new Date(a.assignedAt) > since && a.updatedBy !== m.id; }).sort(byDue);
-    var team = projectList.filter(function (p) { return p.status !== 'done' && p.due && isActive(p) && new Date(p.due) >= now && new Date(p.due) <= horizon; }).sort(byDue);
-    if (!overdue.length && !soon.length && !fresh.length && !team.length) return;
+  var item = function (a) {
+    var d = a.due ? new Date(a.due) : null, proj = projects[a.projectId], when;
+    if (!d) when = 'No due date';
+    else if (isFirm(a)) when = (d < now ? 'Was due ' : 'Firm deadline: ') + relDay(d, now) + ' at ' + Utilities.formatDate(d, TZ, 'h:mm a');
+    else if (weekNum(d) < thisWeek) when = 'From the week of ' + Utilities.formatDate(new Date(d.getTime() - ((dayNum(d) + 3) % 7) * DAYMS), TZ, 'MMM d');
+    else when = 'Aim for ' + relDay(d, now) + (weekNum(d) === thisWeek ? ' (any time this week is fine)' : '');
+    return emailItem(appUrl ? appUrl + '#/a/' + a.id : '', a.title, when + (proj ? ', ' + proj.name : ''), a.link, a.linkLabel || 'Open the document');
+  };
+  var teamItem = function (p) {
+    var d = new Date(p.due);
+    return emailItem(appUrl ? appUrl + '#/p/' + p.id : '', p.name, 'Whole team, due ' + relDay(d, now) + ' at ' + Utilities.formatDate(d, TZ, 'h:mm a'), p.courseLink, 'Open on bCourses');
+  };
+  var footer = function (m) {
+    return appUrl ? '<a href="' + esc(appUrl + '#/m/' + m.id) + '">See all your assignments</a> or <a href="' + esc(appUrl + '#/m/' + m.id + '/email') + '">change how often you get these emails</a>.' : '';
+  };
 
-    var item = function (a) {
-      var d = a.due ? new Date(a.due) : null, proj = projects[a.projectId];
-      var when = d ? (d < now ? 'Was due ' : 'Due ') + relDay(d, now) + ' at ' + Utilities.formatDate(d, TZ, 'h:mm a') : 'No due date';
-      return emailItem(appUrl ? appUrl + '#/a/' + a.id : '', a.title, when + (proj ? ', ' + proj.name : ''), a.link, a.linkLabel || 'Open the document');
-    };
-    var teamItem = function (p) {
-      var d = new Date(p.due);
-      return emailItem(appUrl ? appUrl + '#/p/' + p.id : '', p.name, 'Whole team, due ' + relDay(d, now) + ' at ' + Utilities.formatDate(d, TZ, 'h:mm a'), p.courseLink, 'Open on bCourses');
-    };
-    var parts = [];
-    if (overdue.length) parts.push(overdue.length + ' overdue');
-    if (soon.length) parts.push(soon.length + (pref === 'weekly' ? ' due this week' : ' due soon'));
-    if (fresh.length) parts.push(fresh.length + ' new');
-    if (team.length) parts.push(team.length + ' team deadline' + (team.length > 1 ? 's' : ''));
-    var html = emailShell(
-      'Hi ' + m.name.split(' ')[0] + ',',
-      emailSection('Overdue', overdue.map(item)) +
-      emailSection(pref === 'weekly' ? 'Due this week' : 'Due soon', soon.map(item)) +
-      emailSection('New for you', fresh.map(item)) +
-      emailSection('Team deadlines', team.map(teamItem)),
-      appUrl ? '<a href="' + esc(appUrl + '#/m/' + m.id) + '">See all your assignments</a> or <a href="' + esc(appUrl + '#/m/' + m.id + '/email') + '">change how often you get these emails</a>.' : '');
-    sendMail(m.email, 'Microbe Busters: ' + parts.join(', '), html);
+  members.forEach(function (m) {
+    var pref = EMAIL_PREFS.indexOf(m.emailPref) > -1 ? m.emailPref : 'weekly';
+    if (!m.email || pref === 'off') return;
+    var open = assignments.filter(function (a) { return a.memberId === m.id && a.status !== 'done'; });
+    var late = open.filter(function (a) { return isLate(a, now); }).sort(byDue);
+    var notLate = open.filter(function (a) { return !isLate(a, now); });
+    var html, subject, parts = [];
+
+    if (pref === 'weekly' && (isMonday || force)) {
+      var week = notLate.filter(function (a) { return a.due && new Date(a.due) < weekEnd; }).sort(byDue);
+      var shown = {}; late.concat(week).forEach(function (a) { shown[a.id] = true; });
+      var fresh = notLate.filter(function (a) { return !shown[a.id] && a.assignedAt && new Date(a.assignedAt) > new Date(now.getTime() - 7 * DAYMS) && a.updatedBy !== m.id; }).sort(byDue);
+      var team = projectList.filter(function (p) { return p.status !== 'done' && p.due && isActive(p) && new Date(p.due) >= now && new Date(p.due) < new Date(weekEnd.getTime() + 7 * DAYMS); }).sort(byDue);
+      if (!late.length && !week.length && !fresh.length && !team.length) return;
+      if (week.length) parts.push(week.length + ' this week');
+      if (late.length) parts.push(late.length + ' carried over');
+      if (fresh.length) parts.push(fresh.length + ' new');
+      if (team.length) parts.push(team.length + ' team deadline' + (team.length > 1 ? 's' : ''));
+      subject = 'Microbe Busters: your week (' + parts.join(', ') + ')';
+      html = emailShell('Hi ' + m.name.split(' ')[0] + ', here is your week.',
+        '<p style="margin:8px 0 0">Anything marked "aim for" is on time if it is done by Sunday night. Firm deadlines are exact.</p>' +
+        emailSection('This week', week.map(item)) +
+        emailSection('Carried over from earlier weeks', late.map(item)) +
+        emailSection('New for you, due later', fresh.map(item)) +
+        emailSection('Team deadlines in the next two weeks', team.map(teamItem)), footer(m));
+    } else if (pref === 'weekly') {
+      // Midweek: only new work that can't wait for Monday, and firm deadlines less than a day away.
+      var urgentNew = notLate.filter(function (a) { return a.due && new Date(a.due) < weekEnd && a.assignedAt && new Date(a.assignedAt) > lastRun && a.updatedBy !== m.id; }).sort(byDue);
+      var seen = {}; urgentNew.forEach(function (a) { seen[a.id] = true; });
+      var firmSoon = notLate.filter(function (a) { return !seen[a.id] && a.due && isFirm(a) && new Date(a.due) >= now && new Date(a.due) < new Date(now.getTime() + DAYMS); }).sort(byDue);
+      if (!urgentNew.length && !firmSoon.length) return;
+      if (urgentNew.length) parts.push(urgentNew.length + ' new for this week');
+      if (firmSoon.length) parts.push(firmSoon.length + ' firm deadline' + (firmSoon.length > 1 ? 's' : '') + ' within a day');
+      subject = 'Microbe Busters heads-up: ' + parts.join(', ');
+      html = emailShell('Hi ' + m.name.split(' ')[0] + ', a quick heads-up before Monday\'s email.',
+        emailSection('New, due this week', urgentNew.map(item)) +
+        emailSection('Firm deadline coming up', firmSoon.map(item)), footer(m));
+    } else {
+      // Daily
+      var lateDue = late.filter(function (a) { var n = today - dayNum(new Date(a.due)); return n <= 1 || n % 3 === 0; });
+      var soon = notLate.filter(function (a) { return a.due && new Date(a.due) >= now && new Date(a.due) <= new Date(now.getTime() + 2 * DAYMS); }).sort(byDue);
+      var shownD = {}; lateDue.concat(soon).forEach(function (a) { shownD[a.id] = true; });
+      var freshD = notLate.filter(function (a) { return !shownD[a.id] && a.assignedAt && new Date(a.assignedAt) > lastRun && a.updatedBy !== m.id; }).sort(byDue);
+      var teamD = projectList.filter(function (p) { return p.status !== 'done' && p.due && isActive(p) && new Date(p.due) >= now && new Date(p.due) <= new Date(now.getTime() + 2 * DAYMS); }).sort(byDue);
+      if (!lateDue.length && !soon.length && !freshD.length && !teamD.length) return;
+      if (lateDue.length) parts.push(lateDue.length + ' late');
+      if (soon.length) parts.push(soon.length + ' due soon');
+      if (freshD.length) parts.push(freshD.length + ' new');
+      if (teamD.length) parts.push(teamD.length + ' team deadline' + (teamD.length > 1 ? 's' : ''));
+      subject = 'Microbe Busters: ' + parts.join(', ');
+      html = emailShell('Hi ' + m.name.split(' ')[0] + ',',
+        emailSection('Late', lateDue.map(item)) +
+        emailSection('Due in the next 2 days', soon.map(item)) +
+        emailSection('New for you', freshD.map(item)) +
+        emailSection('Team deadlines', teamD.map(teamItem)), footer(m));
+    }
+    sendMail(m.email, subject, html);
     sent++;
   });
 
-  // Project manager summary, only on days with something in it.
+  // Project manager summary: follows the project manager's own email setting (weekly by default).
   var pmEmail = props.getProperty('PM_EMAIL');
-  if (pmEmail) {
-    var byMember = indexBy(members), week = new Date(now.getTime() + 7 * DAYMS);
-    var open = assignments.filter(function (a) { return a.status !== 'done'; });
-    var late = open.filter(function (a) { return a.due && new Date(a.due) < now; });
-    var upcoming = open.filter(function (a) { return a.due && new Date(a.due) >= now && new Date(a.due) <= week; });
-    var doneRecent = assignments.filter(function (a) { return a.status === 'done' && a.updatedAt && new Date(a.updatedAt) >= lastRun; });
-    var teamWeek = projectList.filter(function (p) { return p.status !== 'done' && p.due && isActive(p) && new Date(p.due) <= week; });
+  var pmMember = members.filter(function (m) { return pmEmail && String(m.email).toLowerCase() === String(pmEmail).toLowerCase(); })[0];
+  var pmPref = pmMember && EMAIL_PREFS.indexOf(pmMember.emailPref) > -1 ? pmMember.emailPref : 'weekly';
+  if (pmEmail && pmPref !== 'off' && (pmPref === 'daily' || isMonday || force)) {
+    var byMember = indexBy(members);
+    var since = props.getProperty('PM_LAST') ? new Date(props.getProperty('PM_LAST')) : new Date(now.getTime() - 7 * DAYMS);
+    var horizon = pmPref === 'daily' ? new Date(now.getTime() + 7 * DAYMS) : weekEnd;
+    var openAll = assignments.filter(function (a) { return a.status !== 'done'; });
+    var lateAll = openAll.filter(function (a) { return isLate(a, now); });
+    var upcoming = openAll.filter(function (a) { return !isLate(a, now) && a.due && new Date(a.due) < horizon; });
+    var doneRecent = assignments.filter(function (a) { return a.status === 'done' && a.updatedAt && new Date(a.updatedAt) >= since; });
+    var teamWeek = projectList.filter(function (p) { return p.status !== 'done' && p.due && isActive(p) && new Date(p.due) < new Date(now.getTime() + 14 * DAYMS); });
     var row = function (a) {
-      return emailItem(appUrl ? appUrl + '#/a/' + a.id : '', ((byMember[a.memberId] || {}).name || a.memberId).split(' ')[0] + ': ' + a.title, a.due ? relDay(new Date(a.due), now) + ' at ' + Utilities.formatDate(new Date(a.due), TZ, 'h:mm a') : '', '', '');
+      var d = a.due ? new Date(a.due) : null;
+      return emailItem(appUrl ? appUrl + '#/a/' + a.id : '', ((byMember[a.memberId] || {}).name || a.memberId).split(' ')[0] + ': ' + a.title,
+        a.status === 'done' ? 'Done' : d ? (isFirm(a) ? 'Firm, ' : 'Aim for ') + relDay(d, now) : '', '', '');
     };
-    var byDue = function (a, b) { return new Date(a.due) - new Date(b.due); };
-    if (late.length || upcoming.length || doneRecent.length || teamWeek.length) {
+    if (lateAll.length || upcoming.length || doneRecent.length || teamWeek.length) {
       var pmHtml = emailShell('Team summary',
-        emailSection('Team deadlines in the next 7 days', teamWeek.sort(byDue).map(function (p) {
+        emailSection('Team deadlines in the next two weeks', teamWeek.sort(byDue).map(function (p) {
           var d = new Date(p.due);
           return emailItem(appUrl ? appUrl + '#/p/' + p.id : '', p.name, relDay(d, now) + (d < now ? ', past due and not marked submitted' : ''), '', '');
         })) +
-        emailSection('Overdue', late.sort(byDue).map(row)) +
-        emailSection('Due in the next 7 days', upcoming.sort(byDue).map(row)) +
+        emailSection('Carried over or late', lateAll.sort(byDue).map(row)) +
+        emailSection(pmPref === 'daily' ? 'Due in the next 7 days' : 'Due this week', upcoming.sort(byDue).map(row)) +
         emailSection('Finished since the last summary', doneRecent.map(row)),
         appUrl ? '<a href="' + esc(appUrl + '#/pm') + '">Open the project view</a>' : '');
-      sendMail(pmEmail, 'Microbe Busters team summary: ' + late.length + ' overdue, ' + upcoming.length + ' due in 7 days', pmHtml);
+      sendMail(pmEmail, 'Microbe Busters team summary: ' + upcoming.length + (pmPref === 'daily' ? ' due in 7 days' : ' due this week') + ', ' + lateAll.length + ' carried over', pmHtml);
+      props.setProperty('PM_LAST', cell(now));
       sent++;
     }
   }
@@ -950,9 +1026,17 @@ function sendMail(to, subject, html, replyTo) {
   catch (e) { MailApp.sendEmail(msg); }
 }
 
+/** Run once from the editor after deploying the weekly-rhythm update: moves everyone to Weekly emails. People can switch back on their own page. */
+function switchEveryoneToWeekly() {
+  readTable('Members').forEach(function (m) {
+    if (m.emailPref !== 'weekly') { m.emailPref = 'weekly'; writeRow('Members', m); log('hub', 'email setting', m.id + ': weekly'); }
+  });
+  Logger.log('Everyone is on Weekly emails now.');
+}
+
 /** Anyone can set their own reminder email preference from their page in the hub. */
 function setEmailPref(memberId, pref) {
-  if (EMAIL_PREFS.indexOf(pref) < 0) throw new Error('Pick daily, weekly or off.');
+  if (EMAIL_PREFS.indexOf(pref) < 0) throw new Error('Pick weekly, daily or off.');
   var m = indexBy(readTable('Members'))[memberId];
   if (!m) throw new Error('Unknown team member.');
   m.emailPref = pref;
