@@ -56,6 +56,39 @@
   }
   function fmtTime(date) { return new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" }).format(date); }
   function due(a) { return a && a.due ? new Date(a.due) : null; }
+  /* Weekly rhythm: most work is an "aim for" date and is on time if done by the end of its week (Sunday).
+     Firm deadlines (marked Firm, or by default bCourses submissions and meeting agendas) are exact. */
+  function isFirm(a) {
+    if (!a) return false;
+    if (a.firm === "yes" || a.firm === true) return true;
+    if (a.firm === "no" || a.firm === false) return false;
+    return /^submit\b/i.test(a.title || "") || /^m-.*-agenda$/.test(a.id || "");
+  }
+  function weekNum(date) { return Math.floor((dayNumber(date) + 3) / 7); }
+  function weekMonday(date) { return new Date(date.getTime() - ((dayNumber(date) + 3) % 7) * DAY); }
+  function weekSunday(date) { return new Date(weekMonday(date).getTime() + 6 * DAY); }
+  function isLate(a) {
+    var d = due(a); if (!d || a.status === "done") return false;
+    return isFirm(a) ? d < new Date() : weekNum(d) < weekNum(new Date());
+  }
+  function fmtShort(date) { return new Intl.DateTimeFormat("en-US", { timeZone: TZ, month: "short", day: "numeric" }).format(date); }
+  /* For aim-for work: "This week", "Next week", "Week of Oct 19", or "From the week of Sep 28". */
+  function relWeek(d, done) {
+    if (!d) return "No due date";
+    if (done) return "Done";
+    var w = weekNum(d) - weekNum(new Date());
+    if (w < 0) return "From the week of " + fmtShort(weekMonday(d));
+    if (w === 0) return "This week";
+    if (w === 1) return "Next week";
+    return "Week of " + fmtShort(weekMonday(d));
+  }
+  function dueRel(a, done) { var d = due(a); return isFirm(a) ? relDue(d, done) : relWeek(d, done); }
+  /* The date line for an assignment: exact for firm deadlines, "Aim: Thu, Oct 8" otherwise. */
+  function dueLine(a) {
+    var d = due(a); if (!d) return "No due date";
+    return isFirm(a) ? fmtDay(d) + ", " + fmtTime(d) : "Aim: " + fmtDay(d);
+  }
+  function firmTag(a) { return isFirm(a) && a.status !== "done" ? '<span class="firm">Firm deadline</span>' : ""; }
   function relDue(d, done) {
     if (!d) return "No due date";
     var now = new Date(), diff = dayNumber(d) - dayNumber(now);
@@ -93,11 +126,10 @@
   }
 
   /* ---------- status: always a shape plus a word ---------- */
-  var LABEL = { todo: "To do", doing: "In progress", done: "Done", late: "Overdue", soon: "Due soon" };
+  var LABEL = { todo: "To do", doing: "In progress", done: "Done", late: "Overdue", soon: "This week" };
   function statusKey(a) {
     if (a.status === "done") return "done";
-    var d = due(a);
-    if (d && d < new Date()) return "late";
+    if (isLate(a)) return "late";
     return a.status === "doing" ? "doing" : "todo";
   }
   function shape(key) {
@@ -215,13 +247,14 @@
 
   /* ---------- views ---------- */
   function counts(list) {
-    var now = new Date(), week = new Date(now.getTime() + 7 * DAY), soon = new Date(now.getTime() + 2 * DAY), c = { late: 0, soon: 0, week: 0, doing: 0, done: 0, open: 0 };
+    var thisWeek = weekNum(new Date()), c = { late: 0, week: 0, next: 0, doing: 0, done: 0, open: 0 };
     list.forEach(function (a) {
       var k = statusKey(a), d = due(a);
       if (k === "done") { c.done++; return; }
       c.open++;
       if (k === "late") c.late++;
-      else if (d && d <= week) { c.week++; if (d <= soon) c.soon++; }
+      else if (d && weekNum(d) <= thisWeek) c.week++;
+      else if (d && weekNum(d) === thisWeek + 1) c.next++;
       if (a.status === "doing") c.doing++;
     });
     return c;
@@ -273,10 +306,10 @@
       var next = list.filter(function (a) { return a.status !== "done"; })[0];
       var countHtml = "";
       if (c.late) countHtml += '<span class="count">' + shape("late") + "<span><b>" + c.late + "</b> overdue</span></span>";
-      countHtml += '<span class="count">' + shape("todo") + "<span><b>" + c.week + "</b> due in 7 days</span></span>";
+      countHtml += '<span class="count">' + shape("todo") + "<span><b>" + c.week + "</b> this week</span></span>";
       countHtml += '<span class="count">' + shape("done") + "<span><b>" + c.done + "</b> done</span></span>";
       var nextHtml = next
-        ? '<p class="sign__next">Next up<b>' + esc(next.title) + "</b>" + esc(next.due ? fmtDay(due(next)) + ", " + fmtTime(due(next)) : "No due date") + "</p>"
+        ? '<p class="sign__next">Next up<b>' + esc(next.title) + "</b>" + esc(dueLine(next)) + "</p>"
         : '<p class="sign__next">Nothing open right now.</p>';
       return '<a class="sign' + (me === m.id ? " is-me" : "") + '" href="#/m/' + esc(m.id) + '">' + bullet(m, "lg") +
         '<span><span class="sign__name">' + esc(m.name) + '</span><br><span class="sign__role">' + esc(m.role) + (me === m.id ? " (you)" : "") + "</span>" +
@@ -291,8 +324,8 @@
     var d = due(a), k = statusKey(a), m = member(a.memberId), p = project(a.projectId);
     return '<li class="row' + (k === "done" ? " is-done" : "") + '"><a href="#/a/' + esc(a.id) + '">' +
       '<span class="row__main"><span class="row__title">' + esc(a.title) + "</span>" +
-      '<span class="row__meta">' + badge(a) + (hideProject ? "" : forTag(p, true) + "<span>" + esc(p.name) + "</span>") + (showWho ? "<span>" + esc(m.name) + "</span>" : "") + "</span></span>" +
-      '<span class="row__due"><span class="row__day">' + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "No due date") + '</span><span class="row__rel">' + esc(relDue(d, k === "done")) + "</span></span>" +
+      '<span class="row__meta">' + badge(a) + firmTag(a) + (hideProject ? "" : forTag(p, true) + "<span>" + esc(p.name) + "</span>") + (showWho ? "<span>" + esc(m.name) + "</span>" : "") + "</span></span>" +
+      '<span class="row__due"><span class="row__day">' + esc(dueLine(a)) + '</span><span class="row__rel">' + esc(dueRel(a, k === "done")) + "</span></span>" +
       "</a></li>";
   }
 
@@ -304,11 +337,12 @@
       '<span class="row__due"><span class="row__day">' + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "No date yet") + '</span><span class="row__rel">' + esc(pRel(p)) + "</span></span></a></li>";
   }
 
-  var EMAIL_OPTS = [["daily", "Daily", "Only on days something is due soon, overdue or new"], ["weekly", "Mondays only", "One email with the whole week"], ["off", "Off", "No reminder emails"]];
+  var EMAIL_OPTS = [["weekly", "Weekly (recommended)", "One email Monday morning with your week. Midweek only if new work is due before Monday, or a firm deadline is less than a day away."],
+    ["daily", "Daily", "At 8 AM on days something is due in the next 2 days, late, or new"], ["off", "Off", "No reminder emails"]];
   function emailPrefHtml(m) {
-    var cur = m.emailPref || "daily";
+    var cur = m.emailPref || "weekly";
     return '<section class="section" id="email" aria-labelledby="email-h"><h2 id="email-h" tabindex="-1">Email reminders</h2>' +
-      '<p class="section__note">Reminders come from the hub at 8 AM, at most once a day, and only when there is something to say. Each item in the email links straight to its page here. This setting is for ' + esc(first(m.name)) + " only.</p>" +
+      '<p class="section__note">Reminders come from the hub at 8 AM, only when there is something to say. Each item in the email links straight to its page here. This setting is for ' + esc(first(m.name)) + " only.</p>" +
       '<fieldset class="picker picker--email"><legend class="sr">How often ' + esc(first(m.name)) + ' gets reminder emails</legend><div class="picker__opts" data-email-for="' + esc(m.id) + '">' +
       EMAIL_OPTS.map(function (o) { return '<label><input type="radio" name="emailPref" value="' + o[0] + '"' + (o[0] === cur ? " checked" : "") + '><span><b>' + o[1] + '</b><small>' + o[2] + "</small></span></label>"; }).join("") +
       "</div></fieldset></section>";
@@ -326,14 +360,15 @@
     var m = byId(state.data.members, id);
     if (!m) return notFound("We couldn't find that team member.");
     store.set("me", id);
-    var list = mine(id), now = new Date(), week = new Date(now.getTime() + 7 * DAY);
-    var groups = { late: [], week: [], later: [], none: [], done: [] };
+    var list = mine(id), thisWeek = weekNum(new Date());
+    var groups = { late: [], week: [], next: [], later: [], none: [], done: [] };
     list.forEach(function (a) {
       var k = statusKey(a), d = due(a);
       if (k === "done") groups.done.push(a);
       else if (k === "late") groups.late.push(a);
       else if (!d) groups.none.push(a);
-      else if (d <= week) groups.week.push(a);
+      else if (weekNum(d) <= thisWeek) groups.week.push(a);
+      else if (weekNum(d) === thisWeek + 1) groups.next.push(a);
       else groups.later.push(a);
     });
     function sec(key, title, empty) {
@@ -350,7 +385,8 @@
       : "";
     return '<div class="wrap"><div class="head"><a class="crumb" href="#/">Team</a>' +
       '<div class="detail__who">' + bullet(m, "lg") + '<div><h1 tabindex="-1">' + esc(m.name) + "</h1><p>" + esc(m.role) + "</p></div></div></div>" +
-      sec("late", "Overdue") + sec("week", "Due in the next 7 days", "Nothing due in the next 7 days.") + sec("later", "Later") + sec("none", "No due date") + teamHtml + doneHtml + emailPrefHtml(m) + "</div>";
+      '<p class="section__note week-note">Dates are aims: anything done by Sunday night of its week is on time. Items marked Firm deadline are exact.</p>' +
+      sec("late", "Overdue") + sec("week", "This week (Mon " + esc(fmtShort(weekMonday(new Date()))) + " to Sun " + esc(fmtShort(weekSunday(new Date()))) + ")", "Nothing left for this week.") + sec("next", "Next week") + sec("later", "Later") + sec("none", "No due date") + teamHtml + doneHtml + emailPrefHtml(m) + "</div>";
   }
 
   /* Plain text from the Sheet to safe HTML. Supports [label](https://...) links,
@@ -418,7 +454,8 @@
     return '<div class="wrap"><div class="detail"><div class="head" style="padding-bottom:0"><a class="crumb" href="#/m/' + esc(m.id) + '">' + esc(first(m.name)) + "'s assignments</a>" +
       '<div class="detail__who">' + bullet(m) + "<span>" + esc(m.name) + "</span></div>" +
       '<h1 tabindex="-1">' + esc(a.title) + '</h1><p class="detail__project">' + (byId(state.data.projects, a.projectId) ? '<a href="#/p/' + esc(p.id) + '">' + esc(p.name) + "</a>" : esc(p.name)) + projLink + "</p></div>" +
-      '<div class="due-block"><div class="due-block__when"><p class="due-block__label">Due</p><p class="due-block__date">' + (d ? esc(fmtDay(d)) + "<br>" + esc(fmtTime(d)) : "No due date") + '</p><p class="due-block__rel">' + esc(relDue(d, k === "done")) + '</p></div><div class="due-block__status">' + badge(a) + "</div></div>" +
+      '<div class="due-block"><div class="due-block__when"><p class="due-block__label">' + (!d ? "Due" : isFirm(a) ? "Firm deadline" : "Aim for") + '</p><p class="due-block__date">' + (d ? esc(fmtDay(d)) + (isFirm(a) ? "<br>" + esc(fmtTime(d)) : "") : "No due date") + '</p><p class="due-block__rel">' + esc(dueRel(a, k === "done")) + "</p>" +
+        (d && !isFirm(a) && k !== "done" ? '<p class="due-block__note">On time if it\'s done by Sunday, ' + esc(fmtShort(weekSunday(d))) + ".</p>" : "") + '</div><div class="due-block__status">' + badge(a) + "</div></div>" +
       "<h2>What to do</h2>" + instructionsHtml(a.instructions) +
       '<div class="actions">' + (link ? '<a class="btn btn--solid" href="' + esc(link) + '" target="_blank" rel="noopener">' + iconFor(link) + esc(a.linkLabel || "Open the document") + '<span class="sr"> (opens in a new tab)</span></a>' : "") +
       (meetFor(a) ? '<a class="btn" href="#/mt/' + esc(meetFor(a).id) + '">Go to the meeting page</a>' : "") +
@@ -498,7 +535,7 @@
         rows.map(function (a) {
           var m = member(a.memberId), d = due(a);
           return '<tr><td class="who">' + bullet(m, "sm") + ' <span class="sr">' + esc(m.name) + '</span></td><td class="t"><a href="#/a/' + esc(a.id) + '">' + esc(a.title) + "</a><br><small>" + esc(m.name) + "</small></td>" +
-            "<td>" + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "None") + "<br><small>" + esc(relDue(d, a.status === "done")) + "</small></td><td>" + badge(a) + "</td>" +
+            "<td>" + (d ? esc(dueLine(a)) : "None") + (isFirm(a) ? " (firm)" : "") + "<br><small>" + esc(dueRel(a, a.status === "done")) + "</small></td><td>" + badge(a) + "</td>" +
             '<td class="act"><button type="button" class="btn btn--quiet" data-act="edit-assignment" data-id="' + esc(a.id) + '">Edit<span class="sr"> ' + esc(a.title) + "</span></button></td></tr>";
         }).join("") + "</tbody></table>";
     }).join("");
@@ -508,16 +545,16 @@
     }).join("") + '</ul><div class="actions"><button type="button" class="btn" data-act="new-project">New project</button></div></section>';
 
     var reminders = '<section class="section" aria-labelledby="rem-h"><h2 id="rem-h">Reminders and calendar</h2>' +
-      "<p style=\"margin-top:12px;max-width:var(--read)\">Every morning at 8 AM, the hub emails each person only if something of theirs is due in the next 2 days, overdue, or newly assigned, with a link to each item. People choose Daily, Mondays only or Off on their own page. You also get a summary of the whole team. Every deadline is on the shared Microbe Busters deadlines calendar, not on anyone's personal calendar. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
+      "<p style=\"margin-top:12px;max-width:var(--read)\">Deadlines run on a weekly rhythm: an assignment's date is an aim, and it counts as on time if it's done by Sunday night of that week. Tick Firm deadline on anything that must happen at an exact time (bCourses submissions and meeting agendas are firm by default). Emails default to Weekly: one email Monday at 8 AM, plus a midweek heads-up only when new work is due before Monday or a firm deadline is less than a day away. People can switch to Daily or Off on their own page. Your team summary follows your own setting. Every deadline is on the shared Microbe Busters deadlines calendar, not on anyone's personal calendar. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
       '<div class="actions"><button type="button" class="btn" data-act="send-reminders"' + (state.demo ? " disabled" : "") + ">Send reminders now</button>" +
       '<button type="button" class="btn" data-act="sync-meetings"' + (state.demo ? " disabled" : "") + ">Refresh meetings from Google Calendar</button>" +
       (store.get("pmCode") ? '<button type="button" class="btn btn--quiet" data-act="forget-pm">Forget the project manager code on this device</button>' : "") + "</div></section>";
 
     return '<div class="wrap"><div class="head"><h1 tabindex="-1">Project view</h1><p>Everything the team owes, by project. Anyone can look. Adding or changing assignments needs the project manager code.</p></div>' +
       '<div class="stats stats--5">' +
-      '<div class="stat"><b>' + c.soon + '</b><span>' + shape("soon") + "Due soon</span></div>" +
+      '<div class="stat"><b>' + c.week + '</b><span>' + shape("soon") + "This week</span></div>" +
       '<div class="stat"><b>' + c.late + '</b><span>' + shape("late") + "Overdue</span></div>" +
-      '<div class="stat"><b>' + c.week + '</b><span>' + shape("todo") + "Due in 7 days</span></div>" +
+      '<div class="stat"><b>' + c.next + '</b><span>' + shape("todo") + "Next week</span></div>" +
       '<div class="stat"><b>' + c.doing + '</b><span>' + shape("doing") + "In progress</span></div>" +
       '<div class="stat"><b>' + c.done + " of " + all.length + '</b><span>' + shape("done") + "Done</span></div></div>" +
       toolbar + (tables || '<p class="empty">No assignments match these filters.</p>') + projects + reminders + "</div>";
@@ -735,12 +772,12 @@
     function role(title, steps) { return '<section class="about-role"><h3>' + title + '</h3><ol class="steps">' + steps.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ol></section>"; }
     function faq(q, a) { return '<details class="faq"><summary>' + q + '</summary><div class="faq__a">' + a + "</div></details>"; }
     var legend = ["todo", "doing", "done", "late"].map(function (k) {
-      var what = { todo: "Not started yet.", doing: "Someone is working on it.", done: "Finished. Team deadlines say Submitted.", late: "The due date has passed and it isn't done." }[k];
+      var what = { todo: "Not started yet.", doing: "Someone is working on it.", done: "Finished. Team deadlines say Submitted.", late: "Firm deadlines: the time has passed. Everything else: its week ended (Sunday night) and it isn't done." }[k];
       return '<li><span class="st">' + shape(k) + LABEL[k] + "</span><span>" + what + "</span></li>";
     }).join("");
     return '<div class="wrap"><div class="head"><h1 tabindex="-1">About this hub</h1><p>One place for our assignments, class deadlines and meetings, so nobody has to dig through group chats or long emails. It reads and saves everything in a Google Sheet in the team Drive.</p></div>' +
       '<section class="section" aria-labelledby="how-h"><h2 id="how-h">How to use it</h2><div class="about-roles">' +
-      role("Everyone", ["On <a href=\"#/\">Team</a>, tap your name. You'll see what's overdue, what's due in the next 7 days, and what's later.", "Open an assignment for the steps, the due date and a button to the right Google Doc.", "When you start, set it to <b>In progress</b>. When you finish, set it to <b>Done</b>. Everyone sees the change right away.", "Got something for the next meeting? Add it on <a href=\"#/meetings\">Meetings</a> under Suggest a topic."]) +
+      role("Everyone", ["On <a href=\"#/\">Team</a>, tap your name. You'll see what to aim for this week, next week and later. Dates are aims: anything done by Sunday night of its week is on time, except items marked Firm deadline.", "Open an assignment for the steps, the due date and a button to the right Google Doc.", "When you start, set it to <b>In progress</b>. When you finish, set it to <b>Done</b>. Everyone sees the change right away.", "Got something for the next meeting? Add it on <a href=\"#/meetings\">Meetings</a> under Suggest a topic."]) +
       role(esc(lead) + ", meeting lead", ["About a week before each meeting, the hub makes the meeting doc with the date, Meet link and next meeting filled in, and gives you an agenda assignment.", "Open the doc from <a href=\"#/meetings\">Meetings</a> and list 3 to 5 topics in the Agenda section, each with who leads it and how long.", "Look under Suggested by the team for topics people added, and move in the ones you want.", "Click <b>Share the agenda</b> on the Meetings page. It emails everyone and ticks off your assignment."]) +
       role(esc(notes) + ", note-taker", ["Take notes in the same meeting doc, under Discussion points, Decisions and Action items.", "In the wrap-up, read back the action items and the key takeaway so the group can agree on it.", "By noon the next day, merge the Meetily summary, give every action item an owner and a due date, and write the key takeaway. It shows up under Past meeting notes.", "Tell " + esc(pm) + " which action items should become assignments here."]) +
       role(esc(pm) + ", project manager", ["Use <a href=\"#/pm\">Project view</a> to see everything by project and filter by person or status.", "Add assignments there or from a team deadline's page. One assignment can go to several people, each with their own steps.", "Your code is only needed for adding, editing and deleting. Every morning you get a summary email."]) +
@@ -751,7 +788,8 @@
       faq("What's the difference between an assignment and a team deadline?", "<p>An assignment is yours: one person, one task, one due date. A team deadline belongs to the whole team, like a class assignment or the final presentation. Team deadlines show at the bottom of everyone's list, and anyone can mark one <b>Submitted</b> once it's turned in.</p>") +
       faq("How do I tell work for " + esc(CLIENT) + " apart from class work?", "<p>Look for the tag. Work for " + esc(CLIENT) + " has a filled " + forTag({ audience: "client" }, true) + " tag, and class assignments have an outlined " + forTag({ audience: "class" }, true) + " tag. <a href=\"#/deliverables\">Deliverables</a> lists both side by side, including things " + esc(CLIENT) + " mentioned that we haven't agreed to yet.</p>") +
       faq("I made a typo in a suggested topic.", "<p>On <a href=\"#/meetings\">Meetings</a>, click <b>Remove</b> next to the topic and add it again. Removing it also takes it out of the meeting doc.</p>") +
-      faq("What emails will I get, and can I turn them down?", "<p>At most one reminder email a day, at 8 AM, and only on days when something of yours is due in the next 2 days, overdue, or newly assigned to you. Every item in it links straight to its page here. Overdue items come up the day after they're due, then every third day, not every morning. You also get the agenda email from " + esc(lead) + " before each meeting.</p><p>To change how often, open your page from <a href=\"#/\">Team</a> and scroll to Email reminders: Daily, Mondays only, or Off. Nothing is added to your personal Google Calendar. If you want a deadline there, open it here and click <b>Add to Google Calendar</b>.</p>") +
+      faq("What emails will I get, and can I turn them down?", "<p>By default, one email on Monday at 8 AM with your week: what to aim for this week, anything carried over, what's new, and team deadlines. Midweek you only hear from the hub if new work lands that's due before Monday, or a firm deadline is less than a day away. Every item links straight to its page here. You also get the agenda email from " + esc(lead) + " before each meeting.</p><p>To change it, open your page from <a href=\"#/\">Team</a> and scroll to Email reminders: Weekly, Daily, or Off. Nothing is added to your personal Google Calendar. If you want a deadline there, open it here and click <b>Add to Google Calendar</b>.</p>") +
+      faq("Do I have to finish things on the exact due date?", "<p>No. Most dates are aims. Anything done by Sunday night of its week is on time, and it only shows as Overdue after that week ends. The exception is anything marked <b>Firm deadline</b>, like bCourses submissions and meeting agendas, which are due at the exact time shown.</p>") +
       faq("Where do I actually do the work?", "<p>In the Google Doc, Sheet or bCourses page linked from each assignment. The hub only tracks who is doing what and when. <a href=\"#/files\">Files</a> lists everything in the team Drive folder.</p>") +
       faq("How do I suggest a topic for a meeting?", "<p>Go to <a href=\"#/meetings\">Meetings</a>, type it under Suggest a topic, pick your name and click <b>Add topic</b>. It's added to the meeting doc under Suggested by the team, and " + esc(lead) + " decides what makes the agenda.</p>") +
       faq("Where are the notes from past meetings?", "<p>Go to <a href=\"#/meetings/notes\">Past meeting notes</a> on the Meetings page. It lists every meeting doc, newest first, with its key takeaway, and has a search box. Each one opens the Google Doc. They all live in the Meetings folder of the team Drive, named with their date.</p>") +
@@ -877,6 +915,7 @@
       '<div class="field"><label for="as-title">Title</label><input id="as-title" name="title" type="text" required value="' + esc(a.title) + '"><small>Start with a verb, for example "Draft the pre-harvest section".</small></div>' +
       '<div class="field"><label for="as-ins">What to do</label><textarea id="as-ins" name="instructions">' + esc(a.instructions) + "</textarea><small>One step per line. Start lines with a dash to make a numbered list.</small></div>" +
       '<div class="two"><div class="field"><label for="as-date">Due date</label><input id="as-date" name="date" type="date" value="' + esc(lp.date) + '"></div><div class="field"><label for="as-time">Due time</label><input id="as-time" name="time" type="time" value="' + esc(lp.time) + '"></div></div>' +
+      '<div class="field"><label class="check"><input type="checkbox" name="firm" value="yes"' + (isFirm(a) ? " checked" : "") + '> Firm deadline</label><small>Tick this for bCourses submissions and anything someone is waiting on at an exact time. Otherwise the date is an aim, and the work is on time if it\'s done by Sunday night of that week.</small></div>' +
       (fileOpts ? '<div class="field"><label for="as-file">Link a file from the team folder</label><select id="as-file" name="file"><option value="">None</option>' + fileOpts + "</select></div>" : "") +
       '<div class="field"><label for="as-link">Or paste a link</label><input id="as-link" name="link" type="url" value="' + esc(a.link) + '" placeholder="https://"></div>' +
       '<div class="field"><label for="as-label">Button text for the link</label><input id="as-label" name="linkLabel" type="text" value="' + esc(a.linkLabel) + '" placeholder="Open the document"></div>' +
@@ -887,7 +926,7 @@
 
   function saveAssignment(existing, v) {
     var link = v.file || v.link || "";
-    var base = { projectId: v.projectId, title: String(v.title || "").trim(), instructions: v.instructions || "", due: zonedIso(v.date, v.time), link: link, linkLabel: v.linkLabel || "" };
+    var base = { projectId: v.projectId, title: String(v.title || "").trim(), instructions: v.instructions || "", due: zonedIso(v.date, v.time), link: link, linkLabel: v.linkLabel || "", firm: v.firm === "yes" ? "yes" : "no" };
     var list;
     if (existing) {
       list = [Object.assign({}, existing, base, { memberId: v.memberId })];
@@ -989,7 +1028,7 @@
     if (act === "forget-pm") { store.del("pmCode"); route(); toast("Project manager code removed from this device"); }
     if (act === "send-reminders") {
       if (needPmCode()) {
-        openDialog('<form method="dialog"><div class="dlg__head"><h2>Send reminders now</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body"><p>Everyone with work due in the next 2 days or overdue gets an email.</p>' + pmCodeField() + '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn--solid">Send reminders</button></div></form>',
+        openDialog('<form method="dialog"><div class="dlg__head"><h2>Send reminders now</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body"><p>Everyone on Weekly gets their weekly email now, and everyone on Daily gets the usual daily one. People with nothing to report get nothing.</p>' + pmCodeField() + '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn--solid">Send reminders</button></div></form>',
           function () { return apiPost({ action: "sendReminders" }).then(function (r) { toast("Sent " + (r.sent || 0) + " reminder emails"); }); });
       } else {
         b.disabled = true;
@@ -1031,7 +1070,7 @@
      GitHub Pages lets browsers cache files for up to 10 minutes, and Chrome sometimes holds them longer.
      version.json is always fetched fresh; if it names a newer build than this one, the hub refreshes
      the cached files and reloads (on first load), or offers a Reload button (when you come back to the tab). */
-  var BUILD = "20261002020354";
+  var BUILD = "20261007210628";
   var lastVersionCheck = 0;
   function checkVersion(onLoad) {
     if (BUILD.indexOf("__") === 0) return;            // local copy without a stamp
