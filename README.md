@@ -53,11 +53,12 @@ Some university Google accounts only allow web apps for people signed in to that
 
 ### Reminders
 
-- Emails come from the hub (the university no-reply address when Google allows it), at 8 AM Pacific, at most once a day per person, and only on days with something to say.
-- Each email lists what's **overdue**, what's **due soon** (next 2 days), what's **new for you** since the last email, and any **team deadline** in the next 2 days. Every item links straight to its page in the hub, with a second link to its document.
-- Overdue items come up the day after they're due, then every third day, so nobody gets nagged daily.
-- Each person chooses **Daily**, **Mondays only** (one email with the whole week) or **Off** at the bottom of their own page. The link at the end of every email goes there.
-- The project manager also gets a team summary on days with something in it.
+- **Weekly rhythm.** An assignment's date is an aim: it counts as on time if it's done by Sunday night of that week, and only shows as Overdue after that. Tick **Firm deadline** on anything that must happen at an exact time. bCourses submissions (titles starting with "Submit") and meeting agendas are firm unless set otherwise.
+- **Weekly emails (the default).** Monday at 8 AM Pacific, each person gets one email: what to aim for this week, anything carried over, what's new, and team deadlines in the next two weeks. Midweek, the hub only writes when new work lands that's due before Monday, or a firm deadline is less than a day away.
+- **Daily** (at 8 AM, only when something is due in the next 2 days, late, or new) and **Off** are also available at the bottom of each person's page. The link at the end of every email goes there.
+- The project manager's team summary follows the project manager's own setting (Monday by default).
+- After deploying this version, run `switchEveryoneToWeekly` once from the editor to move everyone onto Weekly.
+- Emails come from the university no-reply address when Google allows it. Every item links straight to its page in the hub, with a second link to its document.
 - Every assignment and team deadline is an event on the shared "Microbe Busters deadlines" calendar, titled with the person's name, for example "Due (Ben): ...". No one is invited, so nothing lands on personal calendars. Share that calendar read-only with anyone who wants to see it. Anyone can also add a single deadline to their own calendar with **Add to Google Calendar** on its page.
 
 ### Editing the Sheet directly
