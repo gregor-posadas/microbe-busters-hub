@@ -1,6 +1,6 @@
 # Microbe Busters Hub
 
-A small assignment board for the Quito irrigation project team. Each person has a card with their assignments, due dates, instructions and a link to the right Google Doc. The project manager gets a view of everything, the backend keeps every deadline on one shared Google Calendar and sends quiet reminder emails with links straight to each item, and the weekly client meeting gets its own page with the Meet link, a prepared agenda and notes doc, topic suggestions and a one-click agenda email.
+A small assignment board for the Quito irrigation project team. Each person has a card with their assignments, due dates, instructions and a link to the right Google Doc. The project manager gets a view of everything, the backend keeps team deadlines on one shared Google Calendar and sends quiet reminder emails with links straight to each item, and the weekly client meeting gets its own page with the Meet link, a prepared agenda and notes doc, topic suggestions and a one-click agenda email.
 
 - **Website:** plain HTML, CSS and JavaScript, served by GitHub Pages. No build step.
 - **Data:** the Google Sheet "Microbe Busters Hub data" in the team Drive folder. Nothing about the team is stored in this repository.
@@ -20,7 +20,7 @@ Until the backend is connected, the site runs on sample data from `data/demo.jso
    - Open **Execution log** to see the codes. The **team code** is for everyone. The **project manager code** is for you only.
    - Lost them? They are under **Project Settings > Script properties** (`TEAM_CODE`, `PM_CODE`).
 5. Still in **Script properties**, add `APP_URL` with your GitHub Pages address (for example `https://yourname.github.io/microbe-busters-hub/`). Reminder emails and calendar events link back to it.
-6. Pick `syncAllCalendarEvents` and **Run**. This puts every assignment and team deadline on the shared "Microbe Busters deadlines" calendar. No one is invited and no emails are sent.
+6. Pick `syncAllCalendarEvents` and **Run**. This puts every team deadline on the shared "Microbe Busters deadlines" calendar. No one is invited and no emails are sent.
 7. Click **Deploy > New deployment**, choose type **Web app**, set **Execute as: Me** and **Who has access: Anyone**, then **Deploy**. Copy the URL that ends in `/exec`.
 8. In this repository, open `assets/config.js` and paste that URL into `apiUrl`. Commit. The site switches from sample data to the Sheet.
 9. Send the site link and the team code to the team.
@@ -59,7 +59,7 @@ Some university Google accounts only allow web apps for people signed in to that
 - The project manager's team summary follows the project manager's own setting (Monday by default).
 - After deploying this version, run `switchEveryoneToWeekly` once from the editor to move everyone onto Weekly.
 - Emails come from the university no-reply address when Google allows it. Every item links straight to its page in the hub, with a second link to its document.
-- Every assignment and team deadline is an event on the shared "Microbe Busters deadlines" calendar, titled with the person's name, for example "Due (Ben): ...". No one is invited, so nothing lands on personal calendars. Share that calendar read-only with anyone who wants to see it. Anyone can also add a single deadline to their own calendar with **Add to Google Calendar** on its page.
+- Every team deadline (bCourses submissions and client deliverables) is an event on the shared "Microbe Busters deadlines" calendar. Individual assignments stay off it, so the calendar doesn't fill up; they live in the hub and the Monday email. No one is invited, so nothing lands on personal calendars. Share that calendar read-only with anyone who wants to see it. Anyone can add a single assignment to their own calendar with **Add to Google Calendar** on its page. To put every assignment back on the shared calendar, add `ASSIGNMENTS_ON_CALENDAR` = `yes` in **Script properties** and run `syncAllCalendarEvents`.
 
 ### Editing the Sheet directly
 

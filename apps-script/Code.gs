@@ -8,8 +8,8 @@
  * What it does:
  *  - Serves the team's members, projects, assignments and Drive files to the website.
  *  - Saves status changes and project manager edits back to the Sheet.
- *  - Keeps every assignment and team deadline on one shared "Microbe Busters deadlines"
- *    calendar, without inviting anyone.
+ *  - Keeps team deadlines on one shared "Microbe Busters deadlines" calendar, without inviting
+ *    anyone. Individual assignments stay in the hub and the emails.
  *  - Emails reminders on a weekly rhythm: a Monday email with each person's week, and a
  *    midweek heads-up only when something can't wait (see "reminders" below). People can
  *    switch to daily emails or turn them off. The project manager gets a team summary.
@@ -97,22 +97,24 @@ function setup() {
   Logger.log('Next: set APP_URL in Project Settings > Script properties to your GitHub Pages address, then deploy as a web app.');
 }
 
-/** Run once after setup (and again after editing the Sheet by hand): puts every open assignment and
- *  team deadline on the shared "Microbe Busters deadlines" calendar, and takes guests off older events. */
+/** Run once after setup (and again after editing the Sheet by hand): puts every open team deadline on the shared
+ *  "Microbe Busters deadlines" calendar, and takes individual assignments off it (see assignmentsOnCalendar). */
 function syncAllCalendarEvents() {
-  var rows = readTable('Assignments');
-  rows.forEach(function (a) {
-    if (a.status === 'done' || !a.due) return;
+  var removed = 0, kept = 0;
+  readTable('Assignments').forEach(function (a) {
+    var wanted = assignmentsOnCalendar() && a.status !== 'done' && a.due;
+    if (!wanted && !a.calendarEventId) return;
     var id = syncCalendar(a);
-    if (id !== a.calendarEventId) { a.calendarEventId = id; writeRow('Assignments', a); }
+    if (id !== a.calendarEventId) { if (!id) removed++; a.calendarEventId = id; writeRow('Assignments', a); }
+    if (id) kept++;
   });
-  var projects = readTable('Projects');
-  projects.forEach(function (p) {
+  readTable('Projects').forEach(function (p) {
     if (p.status === 'done' || !p.due || !isActive(p)) return;
     var id = syncProjectCalendar(p);
     if (id !== p.calendarEventId) { p.calendarEventId = id; writeRow('Projects', p); }
+    if (id) kept++;
   });
-  Logger.log('Deadlines calendar synced: ' + rows.length + ' assignments and ' + projects.length + ' projects. No one is invited to these events.');
+  Logger.log('Deadlines calendar synced: ' + kept + ' events on the calendar, ' + removed + ' assignment events removed. No one is invited to these events.');
 }
 
 function randomCode() {
@@ -374,9 +376,17 @@ function calendar() {
   return id ? CalendarApp.getCalendarById(id) : CalendarApp.getDefaultCalendar();
 }
 
-/** Creates or updates a 30-minute event ending at the due time, with the assignee as a guest. Returns the event id. */
+/*
+ * Individual assignments stay off the calendar: only team deadlines (Projects) go there, so the calendar shows what the
+ * whole team owes and nothing else. Assignments live in the hub and the Monday email; anyone can still put one on their
+ * own calendar with "Add to Google Calendar" on its page. Set ASSIGNMENTS_ON_CALENDAR to "yes" in Script properties
+ * to bring them back.
+ */
+function assignmentsOnCalendar() { return PropertiesService.getScriptProperties().getProperty('ASSIGNMENTS_ON_CALENDAR') === 'yes'; }
+
+/** Creates or updates a 30-minute event ending at the due time, with no guests. Returns the event id ('' when there is none). */
 function syncCalendar(a) {
-  if (!a.due) { removeEvent(a.calendarEventId); return ''; }
+  if (!a.due || !assignmentsOnCalendar()) { removeEvent(a.calendarEventId); return ''; }
   var member = indexBy(readTable('Members'))[a.memberId] || {};
   var end = new Date(a.due), start = new Date(end.getTime() - 30 * 60000);
   var who = member.name ? ' (' + member.name.split(' ')[0] + ')' : '';
@@ -870,6 +880,9 @@ function nextMonday(now) {
  * force = true (the "Send reminders now" button) sends Weekly people their full weekly email today.
  */
 function sendDailyReminders(force) {
+  // The 8 AM trigger passes an event object here, which is truthy. Only the button's explicit true counts as forcing,
+  // otherwise everyone gets the full weekly email every morning.
+  force = force === true;
   var props = PropertiesService.getScriptProperties();
   var appUrl = props.getProperty('APP_URL') || '';
   var members = readTable('Members'), assignments = readTable('Assignments');

@@ -545,7 +545,7 @@
     }).join("") + '</ul><div class="actions"><button type="button" class="btn" data-act="new-project">New project</button></div></section>';
 
     var reminders = '<section class="section" aria-labelledby="rem-h"><h2 id="rem-h">Reminders and calendar</h2>' +
-      "<p style=\"margin-top:12px;max-width:var(--read)\">Deadlines run on a weekly rhythm: an assignment's date is an aim, and it counts as on time if it's done by Sunday night of that week. Tick Firm deadline on anything that must happen at an exact time (bCourses submissions and meeting agendas are firm by default). Emails default to Weekly: one email Monday at 8 AM, plus a midweek heads-up only when new work is due before Monday or a firm deadline is less than a day away. People can switch to Daily or Off on their own page. Your team summary follows your own setting. Every deadline is on the shared Microbe Busters deadlines calendar, not on anyone's personal calendar. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
+      "<p style=\"margin-top:12px;max-width:var(--read)\">Deadlines run on a weekly rhythm: an assignment's date is an aim, and it counts as on time if it's done by Sunday night of that week. Tick Firm deadline on anything that must happen at an exact time (bCourses submissions and meeting agendas are firm by default). Emails default to Weekly: one email Monday at 8 AM, plus a midweek heads-up only when new work is due before Monday or a firm deadline is less than a day away. People can switch to Daily or Off on their own page. Your team summary follows your own setting. Team deadlines are on the shared Microbe Busters deadlines calendar; individual assignments stay here and in the emails, not on any calendar. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
       '<div class="actions"><button type="button" class="btn" data-act="send-reminders"' + (state.demo ? " disabled" : "") + ">Send reminders now</button>" +
       '<button type="button" class="btn" data-act="sync-meetings"' + (state.demo ? " disabled" : "") + ">Refresh meetings from Google Calendar</button>" +
       (store.get("pmCode") ? '<button type="button" class="btn btn--quiet" data-act="forget-pm">Forget the project manager code on this device</button>' : "") + "</div></section>";
@@ -948,7 +948,7 @@
 
   function confirmDelete(id) {
     var a = byId(state.data.assignments, id); if (!a) return;
-    openDialog('<form method="dialog"><div class="dlg__head"><h2>Delete this assignment?</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body"><p><b>' + esc(a.title) + "</b> will be removed from " + esc(first(member(a.memberId).name)) + "'s list and from the deadlines calendar. This can't be undone.</p>" + pmCodeField() +
+    openDialog('<form method="dialog"><div class="dlg__head"><h2>Delete this assignment?</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body"><p><b>' + esc(a.title) + "</b> will be removed from " + esc(first(member(a.memberId).name)) + "'s list. This can't be undone.</p>" + pmCodeField() +
       '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Keep it</button><button type="submit" class="btn btn--solid">Delete assignment</button></div></form>', function () {
       return apiPost({ action: "deleteAssignment", id: id }).then(function (r) {
         state.data.assignments = state.data.assignments.filter(function (x) { return x.id !== id; });
@@ -1070,7 +1070,7 @@
      GitHub Pages lets browsers cache files for up to 10 minutes, and Chrome sometimes holds them longer.
      version.json is always fetched fresh; if it names a newer build than this one, the hub refreshes
      the cached files and reloads (on first load), or offers a Reload button (when you come back to the tab). */
-  var BUILD = "20261007210628";
+  var BUILD = "20261014001019";
   var lastVersionCheck = 0;
   function checkVersion(onLoad) {
     if (BUILD.indexOf("__") === 0) return;            // local copy without a stamp
