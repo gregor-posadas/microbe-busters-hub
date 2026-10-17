@@ -281,9 +281,11 @@
         '<div class="meter__bar" role="progressbar" aria-labelledby="' + id + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + value + '"><i style="width:' + value + '%"></i></div>' +
         '<p class="meter__meta">' + meta + "</p></div>";
     }
-    return '<section class="semester" aria-labelledby="prog-h"><h2 id="prog-h" class="semester__h">Fall 2026 semester</h2><div class="semester__grid">' +
-      meter("prog-time", "of the semester has gone by", pct, (now < s ? "Starts " + esc(fmtDay(s)) : now > e ? "The semester is over" : "Week " + week + " of " + weeks + ", " + left + (left === 1 ? " day" : " days") + " left. Ends " + esc(fmtDay(e)) + "."), "meter--time") +
-      meter("prog-work", "of the team's assignments are done", wpct, done + " of " + all.length + " done", "meter--work") +
+    var term = cfg.termLabel || "Fall 2026 semester", unit = cfg.termLabel ? "the class" : "the semester";
+    var endNote = cfg.termEndNote ? " (" + esc(cfg.termEndNote) + ")" : "";
+    return '<section class="semester" aria-labelledby="prog-h"><h2 id="prog-h" class="semester__h">' + esc(term) + '</h2><div class="semester__grid">' +
+      meter("prog-time", "of " + unit + " is over", pct, (now < s ? "Starts " + esc(fmtDay(s)) + "." : now > e ? "The class is over." : "Week " + week + " of " + weeks + ". " + left + (left === 1 ? " day" : " days") + " left. Ends " + esc(fmtDay(e)) + endNote + "."), "meter--time") +
+      meter("prog-work", "of the team's tasks are done", wpct, done + " of " + all.length + " done", "meter--work") +
       "</div></section>";
   }
 
@@ -316,7 +318,7 @@
         '<span class="sign__counts">' + countHtml + "</span>" + nextHtml + "</span></a>";
     }).join("");
 
-    return '<div class="wrap"><div class="head"><h1 tabindex="-1">Team assignments</h1><p>Pick your name to see what you need to do and when it is due.</p></div>' +
+    return '<div class="wrap"><div class="head"><h1 tabindex="-1">Team tasks</h1><p>Select your name. You see what you must do and when it is due.</p></div>' +
       nextMeetingStrip() + progressHtml() + route + '<section aria-labelledby="signs-h"><h2 id="signs-h" class="sr">Team members</h2><div class="signs">' + signs + "</div></section></div>";
   }
 
@@ -333,7 +335,7 @@
     var d = due(p), k = pKey(p), n = state.data.assignments.filter(function (a) { return a.projectId === p.id; }).length;
     return '<li class="row row--team' + (k === "done" ? " is-done" : "") + '"><a href="#/p/' + esc(p.id) + '">' +
       '<span class="row__main"><span class="row__title">' + esc(p.name) + "</span>" +
-      '<span class="row__meta">' + pBadge(p) + forTag(p, true) + (n ? "<span>" + n + (n === 1 ? " assignment" : " assignments") + "</span>" : "") + "</span></span>" +
+      '<span class="row__meta">' + pBadge(p) + forTag(p, true) + (n ? "<span>" + n + (n === 1 ? " task" : " tasks") + "</span>" : "") + "</span></span>" +
       '<span class="row__due"><span class="row__day">' + (d ? esc(fmtDay(d)) + ", " + esc(fmtTime(d)) : "No date yet") + '</span><span class="row__rel">' + esc(pRel(p)) + "</span></span></a></li>";
   }
 
@@ -442,7 +444,7 @@
   function meetFor(a) { var x = /^m-(\d{4}-\d{2}-\d{2})-/.exec(a.id || ""); return x ? meetingById(x[1]) : null; }
   function viewAssignment(id) {
     var a = byId(state.data.assignments, id);
-    if (!a) return notFound("This assignment was removed or the link is wrong.");
+    if (!a) return notFound("This task does not exist. Someone removed it, or the link is wrong.");
     var m = member(a.memberId), p = project(a.projectId), d = due(a), k = statusKey(a);
     var others = state.data.assignments.filter(function (x) { return x.projectId === a.projectId && x.id !== a.id; }).sort(sortByDue);
     var link = safeUrl(a.link);
@@ -451,7 +453,7 @@
     }).join("");
     var updated = a.updatedAt ? '<p class="section__note">Last changed ' + esc(fmtDay(new Date(a.updatedAt))) + ", " + esc(fmtTime(new Date(a.updatedAt))) + (a.updatedBy ? " by " + esc(member(a.updatedBy).name) : "") + ".</p>" : "";
     var projLink = safeUrl(p.link) && safeUrl(p.link) !== link ? ' <a href="' + esc(p.link) + '" target="_blank" rel="noopener">Project doc</a>' : "";
-    return '<div class="wrap"><div class="detail"><div class="head" style="padding-bottom:0"><a class="crumb" href="#/m/' + esc(m.id) + '">' + esc(first(m.name)) + "'s assignments</a>" +
+    return '<div class="wrap"><div class="detail"><div class="head" style="padding-bottom:0"><a class="crumb" href="#/m/' + esc(m.id) + '">' + esc(first(m.name)) + "'s tasks</a>" +
       '<div class="detail__who">' + bullet(m) + "<span>" + esc(m.name) + "</span></div>" +
       '<h1 tabindex="-1">' + esc(a.title) + '</h1><p class="detail__project">' + (byId(state.data.projects, a.projectId) ? '<a href="#/p/' + esc(p.id) + '">' + esc(p.name) + "</a>" : esc(p.name)) + projLink + "</p></div>" +
       '<div class="due-block"><div class="due-block__when"><p class="due-block__label">' + (!d ? "Due" : isFirm(a) ? "Firm deadline" : "Aim for") + '</p><p class="due-block__date">' + (d ? esc(fmtDay(d)) + (isFirm(a) ? "<br>" + esc(fmtTime(d)) : "") : "No due date") + '</p><p class="due-block__rel">' + esc(dueRel(a, k === "done")) + "</p>" +
@@ -475,7 +477,7 @@
     var list = state.data.assignments.filter(function (a) { return a.projectId === p.id; }).sort(sortByDue);
     var course = safeUrl(p.courseLink), doc = safeUrl(p.link);
     var who = list.length ? '<ul class="rows">' + list.map(function (a) { return rowHtml(a, true, true); }).join("") + "</ul>"
-      : '<p class="empty">No one has an assignment for this yet. The project manager can split it up with Add an assignment.</p>';
+      : '<p class="empty">Nobody has a task for this yet. The project manager can divide it into tasks with Add a task.</p>';
     return '<div class="wrap"><div class="detail"><div class="head" style="padding-bottom:0">' + (p.audience ? '<a class="crumb" href="#/deliverables">Deliverables</a>' : '<a class="crumb" href="#/">Team</a>') +
       '<h1 tabindex="-1">' + esc(p.name) + '</h1><p class="detail__project">' + (p.audience ? forTag(p) + " " : "") + (isClient(p) ? "Deliverable for " + esc(CLIENT) + (p.scope === "to-confirm" ? ", not confirmed yet" : p.scope === "on-hold" ? ", on hold" : "") : p.audience === "class" ? "Class assignment for the whole team" : "Whole-team deadline") + "</p></div>" +
       '<div class="due-block"><div class="due-block__when"><p class="due-block__label">Due</p><p class="due-block__date">' + (d ? esc(fmtDay(d)) + "<br>" + esc(fmtTime(d)) : "No due date") + '</p><p class="due-block__rel">' + esc(pRel(p)) + '</p></div><div class="due-block__status">' + pBadge(p) + "</div></div>" +
@@ -484,9 +486,9 @@
       (course ? '<a class="btn btn--solid" href="' + esc(course) + '" target="_blank" rel="noopener">Open on bCourses<span class="sr"> (opens in a new tab)</span></a>' : "") +
       (doc ? '<a class="btn' + (course ? "" : " btn--solid") + '" href="' + esc(doc) + '" target="_blank" rel="noopener">' + iconFor(doc) + (gKind(doc) === "slides" ? "Open the slides" : gKind(doc) === "sheet" ? "Open the sheet" : "Open the project doc") + '<span class="sr"> (opens in a new tab)</span></a>' : "") +
       (d ? '<a class="btn" href="' + esc(calendarUrl(p)) + '" target="_blank" rel="noopener">' + gIcon("calendar") + 'Add to Google Calendar<span class="sr"> (opens in a new tab)</span></a>' : "") + "</div>" +
-      (d || isClient(p) ? '<div class="submit-bar"><p>' + (k === "done" ? "Marked " + doneWord(p).toLowerCase() + ". If that was a mistake, undo it." : isClient(p) ? "Once " + esc(CLIENT) + " has it, mark it delivered so it drops off everyone's list." : "Once the team has turned this in, mark it submitted so it drops off everyone's list.") + '</p><button type="button" class="btn" data-act="project-status" data-id="' + esc(p.id) + '">' + (k === "done" ? "Undo " + doneWord(p).toLowerCase() : "Mark as " + doneWord(p).toLowerCase()) + "</button></div>" : "") +
+      (d || isClient(p) ? '<div class="submit-bar"><p>' + (k === "done" ? "Marked " + doneWord(p).toLowerCase() + ". If that was a mistake, undo it." : isClient(p) ? "When " + esc(CLIENT) + " gets it, mark it as delivered. Then it goes off the list of each person." : "When the team submits this, mark it as submitted. Then it goes off the list of each person.") + '</p><button type="button" class="btn" data-act="project-status" data-id="' + esc(p.id) + '">' + (k === "done" ? "Undo " + doneWord(p).toLowerCase() : "Mark as " + doneWord(p).toLowerCase()) + "</button></div>" : "") +
       "<h2>Who is doing what</h2>" + who +
-      '<div class="actions"><button type="button" class="btn" data-act="new-assignment" data-project="' + esc(p.id) + '">Add an assignment</button><button type="button" class="btn btn--quiet" data-act="edit-project" data-id="' + esc(p.id) + '">Edit project</button></div>' +
+      '<div class="actions"><button type="button" class="btn" data-act="new-assignment" data-project="' + esc(p.id) + '">Add a task</button><button type="button" class="btn btn--quiet" data-act="edit-project" data-id="' + esc(p.id) + '">Edit project</button></div>' +
       "</div></div>";
   }
 
@@ -518,11 +520,11 @@
       return (!f.who || a.memberId === f.who) && (!f.proj || a.projectId === f.proj) && (!f.st || statusKey(a) === f.st);
     }).sort(sortByDue);
     function opt(v, label, cur) { return '<option value="' + esc(v) + '"' + (v === cur ? " selected" : "") + ">" + esc(label) + "</option>"; }
-    var toolbar = '<form class="toolbar" id="pm-filter" aria-label="Filter assignments">' +
+    var toolbar = '<form class="toolbar" id="pm-filter" aria-label="Filter tasks">' +
       '<div class="field"><label for="f-who">Person</label><select id="f-who" name="who">' + opt("", "Everyone", f.who) + state.data.members.map(function (m) { return opt(m.id, m.name, f.who); }).join("") + "</select></div>" +
       '<div class="field"><label for="f-proj">Project</label><select id="f-proj" name="proj">' + opt("", "All projects", f.proj) + state.data.projects.map(function (p) { return opt(p.id, p.name, f.proj); }).join("") + "</select></div>" +
       '<div class="field"><label for="f-st">Status</label><select id="f-st" name="st">' + opt("", "Any status", f.st) + ["late", "todo", "doing", "done"].map(function (k) { return opt(k, LABEL[k], f.st); }).join("") + "</select></div>" +
-      '<button type="button" class="btn btn--solid" data-act="new-assignment">New assignment</button></form>';
+      '<button type="button" class="btn btn--solid" data-act="new-assignment">New task</button></form>';
 
     var tables = state.data.projects.map(function (p) {
       var rows = list.filter(function (a) { return a.projectId === p.id; });
@@ -531,7 +533,7 @@
       var pct = allP.length ? Math.round(100 * doneP / allP.length) : 0;
       return '<table class="pm-table"><caption><a href="#/p/' + esc(p.id) + '">' + esc(p.name) + "</a> " + forTag(p, true) + (p.due ? "<small>Due " + esc(fmtDay(new Date(p.due))) + "</small>" : "") +
         '<br><span class="progress"><span class="progress__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span><small>' + doneP + " of " + allP.length + " done</small></span></caption>" +
-        '<thead><tr><th scope="col">Who</th><th scope="col">Assignment</th><th scope="col">Due</th><th scope="col">Status</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>' +
+        '<thead><tr><th scope="col">Who</th><th scope="col">Task</th><th scope="col">Due</th><th scope="col">Status</th><th scope="col"><span class="sr">Actions</span></th></tr></thead><tbody>' +
         rows.map(function (a) {
           var m = member(a.memberId), d = due(a);
           return '<tr><td class="who">' + bullet(m, "sm") + ' <span class="sr">' + esc(m.name) + '</span></td><td class="t"><a href="#/a/' + esc(a.id) + '">' + esc(a.title) + "</a><br><small>" + esc(m.name) + "</small></td>" +
@@ -540,24 +542,24 @@
         }).join("") + "</tbody></table>";
     }).join("");
 
-    var projects = '<section class="section" aria-labelledby="proj-h"><h2 id="proj-h">Projects and team deadlines</h2><p class="section__note">Open a project to edit it, add assignments to it, or mark it submitted.</p><ul class="rows">' + state.data.projects.slice().sort(sortByDue).map(function (p) {
+    var projects = '<section class="section" aria-labelledby="proj-h"><h2 id="proj-h">Projects and team deadlines</h2><p class="section__note">Open a project to edit it, add tasks to it, or mark it submitted.</p><ul class="rows">' + state.data.projects.slice().sort(sortByDue).map(function (p) {
       return projectRowHtml(p);
     }).join("") + '</ul><div class="actions"><button type="button" class="btn" data-act="new-project">New project</button></div></section>';
 
     var reminders = '<section class="section" aria-labelledby="rem-h"><h2 id="rem-h">Reminders and calendar</h2>' +
-      "<p style=\"margin-top:12px;max-width:var(--read)\">Deadlines run on a weekly rhythm: an assignment's date is an aim, and it counts as on time if it's done by Sunday night of that week. Tick Firm deadline on anything that must happen at an exact time (bCourses submissions and meeting agendas are firm by default). Emails default to Weekly: one email Monday at 8 AM, plus a midweek heads-up only when new work is due before Monday or a firm deadline is less than a day away. People can switch to Daily or Off on their own page. Your team summary follows your own setting. Team deadlines are on the shared Microbe Busters deadlines calendar; individual assignments stay here and in the emails, not on any calendar. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
+      "<p style=\"margin-top:12px;max-width:var(--read)\">Deadlines run on a weekly rhythm: a task's date is an aim, and it counts as on time if it's done by Sunday night of that week. Tick Firm deadline on anything that must happen at an exact time (bCourses submissions and meeting agendas are firm by default). Emails default to Weekly: one email Monday at 8 AM, plus a midweek heads-up only when new work is due before Monday or a firm deadline is less than a day away. People can switch to Daily or Off on their own page. Your team summary follows your own setting. Team deadlines are on the shared Microbe Busters deadlines calendar; individual tasks stay here and in the emails, not on any calendar. Meetings refresh from Google Calendar at 6 AM and 6 PM, and each meeting's doc is made a week ahead.</p>" +
       '<div class="actions"><button type="button" class="btn" data-act="send-reminders"' + (state.demo ? " disabled" : "") + ">Send reminders now</button>" +
       '<button type="button" class="btn" data-act="sync-meetings"' + (state.demo ? " disabled" : "") + ">Refresh meetings from Google Calendar</button>" +
       (store.get("pmCode") ? '<button type="button" class="btn btn--quiet" data-act="forget-pm">Forget the project manager code on this device</button>' : "") + "</div></section>";
 
-    return '<div class="wrap"><div class="head"><h1 tabindex="-1">Project view</h1><p>Everything the team owes, by project. Anyone can look. Adding or changing assignments needs the project manager code.</p></div>' +
+    return '<div class="wrap"><div class="head"><h1 tabindex="-1">Project view</h1><p>Everything the team owes, by project. Anyone can look. To add or change tasks, you need the project manager code.</p></div>' +
       '<div class="stats stats--5">' +
       '<div class="stat"><b>' + c.week + '</b><span>' + shape("soon") + "This week</span></div>" +
       '<div class="stat"><b>' + c.late + '</b><span>' + shape("late") + "Overdue</span></div>" +
       '<div class="stat"><b>' + c.next + '</b><span>' + shape("todo") + "Next week</span></div>" +
       '<div class="stat"><b>' + c.doing + '</b><span>' + shape("doing") + "In progress</span></div>" +
       '<div class="stat"><b>' + c.done + " of " + all.length + '</b><span>' + shape("done") + "Done</span></div></div>" +
-      toolbar + (tables || '<p class="empty">No assignments match these filters.</p>') + projects + reminders + "</div>";
+      toolbar + (tables || '<p class="empty">No tasks match these filters.</p>') + projects + reminders + "</div>";
   }
 
   function viewFiles() {
@@ -605,7 +607,7 @@
       return { key: "done", text: "Agenda shared " + fmtDay(at) + ", " + fmtTime(at) + (m.agendaSharedBy ? " by " + first(member(m.agendaSharedBy).name) : "") };
     }
     if (new Date(m.start) < now) return { key: "todo", text: "No agenda was shared from the hub" };
-    if (!m.docUrl) return { key: "todo", text: "The meeting doc is made automatically a week before" };
+    if (!m.docUrl) return { key: "todo", text: "The hub makes the meeting doc one week before" };
     if (now > due) return { key: "late", text: "Agenda not shared yet. It was due " + fmtDay(due) + ", " + fmtTime(due) };
     return { key: "todo", text: "Agenda due " + fmtDay(due) + ", " + fmtTime(due) };
   }
@@ -643,9 +645,9 @@
     if (!past) {
       var lead = member(LEAD);
       html += '<div class="lead-box"><h3>' + esc(first(lead.name)) + "'s steps as meeting lead</h3><ol class=\"steps\">" +
-        "<li>" + (m.docUrl ? '<a class="ilink" href="' + esc(m.docUrl) + '" target="_blank" rel="noopener">' + iconFor(m.docUrl, true) + 'Open the meeting doc<span class="sr"> (opens in a new tab)</span></a>. The date, Meet link and next meeting are already filled in.' : "Wait for the meeting doc. The hub makes it about a week before, with the date and Meet link filled in.") + "</li>" +
+        "<li>" + (m.docUrl ? '<a class="ilink" href="' + esc(m.docUrl) + '" target="_blank" rel="noopener">' + iconFor(m.docUrl, true) + 'Open the meeting doc<span class="sr"> (opens in a new tab)</span></a>. The date, Meet link and next meeting are already filled in.' : "Wait for the meeting doc. The hub makes it about a week before, with the date and the Meet link.") + "</li>" +
         "<li>In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes. Move in any topics the team suggested below.</li>" +
-        "<li>Come back here and share the agenda. It emails everyone the list and the Meet link, and ticks off your agenda assignment.</li></ol>" +
+        "<li>Come back here and share the agenda. It emails everyone the list and the Meet link, and marks your agenda task as done.</li></ol>" +
         '<div class="actions"><button type="button" class="btn ' + (m.agendaSharedAt ? "" : "btn--solid") + '" data-act="share-agenda" data-id="' + esc(m.id) + '"' + (m.docUrl ? "" : " disabled") + ">" + (m.agendaSharedAt ? "Share the agenda again" : "Share the agenda") + "</button></div></div>";
     }
     html += "</section>";
@@ -659,7 +661,7 @@
   function meetingRow(m) {
     var s = new Date(m.start), st = agendaState(m), past = new Date(m.end || m.start) < new Date();
     var n = state.data.topics.filter(function (t) { return t.meetingId === m.id; }).length;
-    var meta = past ? (m.docUrl ? "<span>Notes doc</span>" : "<span>No doc</span>") : (m.docUrl ? "<span>Doc ready</span>" : "<span>Doc is made a week before</span>");
+    var meta = past ? (m.docUrl ? "<span>Notes doc</span>" : "<span>No doc</span>") : (m.docUrl ? "<span>Doc ready</span>" : "<span>The hub makes the doc one week before</span>");
     return '<li class="row' + (past ? " is-done" : "") + '"><a href="#/mt/' + esc(m.id) + '"><span class="row__main"><span class="row__title">' + esc(fmtDay(s)) + " meeting</span>" +
       '<span class="row__meta">' + (past || !m.docUrl ? "" : '<span class="st">' + shape(st.key) + (st.key === "done" ? "Agenda shared" : st.key === "late" ? "Agenda late" : "Agenda not shared yet") + "</span>") + meta + (n ? "<span>" + n + (n === 1 ? " topic" : " topics") + "</span>" : "") + "</span></span>" +
       '<span class="row__due"><span class="row__day">' + esc(meetTime(m)) + '</span><span class="row__rel">' + esc(meetRel(m)) + "</span></span></a></li>";
@@ -772,38 +774,38 @@
     function role(title, steps) { return '<section class="about-role"><h3>' + title + '</h3><ol class="steps">' + steps.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ol></section>"; }
     function faq(q, a) { return '<details class="faq"><summary>' + q + '</summary><div class="faq__a">' + a + "</div></details>"; }
     var legend = ["todo", "doing", "done", "late"].map(function (k) {
-      var what = { todo: "Not started yet.", doing: "Someone is working on it.", done: "Finished. Team deadlines say Submitted.", late: "Firm deadlines: the time has passed. Everything else: its week ended (Sunday night) and it isn't done." }[k];
+      var what = { todo: "Nobody started it.", doing: "A person is working on it.", done: "It is finished. For a team deadline, it shows Submitted.", late: "A firm deadline: the time is past. Other items: the week ended (Sunday night) and the item is not done." }[k];
       return '<li><span class="st">' + shape(k) + LABEL[k] + "</span><span>" + what + "</span></li>";
     }).join("");
-    return '<div class="wrap"><div class="head"><h1 tabindex="-1">About this hub</h1><p>One place for our assignments, class deadlines and meetings, so nobody has to dig through group chats or long emails. It reads and saves everything in a Google Sheet in the team Drive.</p></div>' +
+    return '<div class="wrap"><div class="head"><h1 tabindex="-1">About this hub</h1><p>The hub shows our tasks, class deadlines and meetings in one place. Then you do not have to search group chats or long emails. The hub keeps all data in a Google Sheet in the team Drive.</p></div>' +
       '<section class="section" aria-labelledby="how-h"><h2 id="how-h">How to use it</h2><div class="about-roles">' +
-      role("Everyone", ["On <a href=\"#/\">Team</a>, tap your name. You'll see what to aim for this week, next week and later. Dates are aims: anything done by Sunday night of its week is on time, except items marked Firm deadline.", "Open an assignment for the steps, the due date and a button to the right Google Doc.", "When you start, set it to <b>In progress</b>. When you finish, set it to <b>Done</b>. Everyone sees the change right away.", "Got something for the next meeting? Add it on <a href=\"#/meetings\">Meetings</a> under Suggest a topic."]) +
-      role(esc(lead) + ", meeting lead", ["About a week before each meeting, the hub makes the meeting doc with the date, Meet link and next meeting filled in, and gives you an agenda assignment.", "Open the doc from <a href=\"#/meetings\">Meetings</a> and list 3 to 5 topics in the Agenda section, each with who leads it and how long.", "Look under Suggested by the team for topics people added, and move in the ones you want.", "Click <b>Share the agenda</b> on the Meetings page. It emails everyone and ticks off your assignment."]) +
-      role(esc(notes) + ", note-taker", ["Take notes in the same meeting doc, under Discussion points, Decisions and Action items.", "In the wrap-up, read back the action items and the key takeaway so the group can agree on it.", "By noon the next day, merge the Meetily summary, give every action item an owner and a due date, and write the key takeaway. It shows up under Past meeting notes.", "Tell " + esc(pm) + " which action items should become assignments here."]) +
-      role(esc(pm) + ", project manager", ["Use <a href=\"#/pm\">Project view</a> to see everything by project and filter by person or status.", "Add assignments there or from a team deadline's page. One assignment can go to several people, each with their own steps.", "Your code is only needed for adding, editing and deleting. Every morning you get a summary email."]) +
+      role("Everyone", ["On the <a href=\"#/\">Team</a> page, tap your name. You see your tasks for this week, for next week and for later.", "Most dates are targets. A task is on time if you finish it before Sunday night of its week. Tasks marked Firm deadline are due at the exact time.", "Open a task to see the steps, the due date and a button to the correct Google Doc.", "When you start a task, set it to <b>In progress</b>. When you finish it, set it to <b>Done</b>. All people see the change immediately.", "To suggest a topic for the next meeting, go to <a href=\"#/meetings\">Meetings</a>. Use Suggest a topic."]) +
+      role(esc(lead) + ", meeting lead", ["About one week before each meeting, the hub makes the meeting doc. It also gives you a task to write the agenda.", "Open the doc from <a href=\"#/meetings\">Meetings</a>. In the Agenda section, write 3 to 5 topics. Give each topic a leader and a number of minutes.", "Read the topics below Suggested by the team. Move the topics that you want into the agenda.", "On the Meetings page, click <b>Share the agenda</b>. The hub sends it to all people by email and marks your task as done."]) +
+      role(esc(notes) + ", note-taker", ["Write notes in the meeting doc, below Discussion points, Decisions and Action items.", "At the end of the meeting, read the action items and the key takeaway aloud. Ask the group to agree.", "Before 12 PM the next day, copy the Meetily summary into the doc. Give each action item an owner and a due date. Write the key takeaway.", "Tell " + esc(pm) + " which action items must become tasks in the hub."]) +
+      role(esc(pm) + ", project manager", ["Use <a href=\"#/pm\">Project view</a> to see all work by project. Filter by person or by status.", "Add tasks there or from the page of a team deadline. One task can go to several people. Each person gets their own steps.", "You need your code only to add, change or delete tasks. You get a summary email each morning."]) +
       "</div></section>" +
-      '<section class="section" aria-labelledby="sym-h"><h2 id="sym-h">What the symbols mean</h2><p class="section__note">Each status has its own shape and word, so color is never the only clue.</p><ul class="legend">' + legend + "</ul></section>" +
+      '<section class="section" aria-labelledby="sym-h"><h2 id="sym-h">What the symbols mean</h2><p class="section__note">Each status has its own shape and word. Color is never the only sign.</p><ul class="legend">' + legend + "</ul></section>" +
       '<section class="section" aria-labelledby="faq-h"><h2 id="faq-h">Questions</h2>' +
-      faq("My assignment is wrong, or something is missing.", "<p>Tell " + esc(pm) + ". Only the project manager can add, change or delete assignments. That keeps one person responsible for the list.</p>") +
-      faq("What's the difference between an assignment and a team deadline?", "<p>An assignment is yours: one person, one task, one due date. A team deadline belongs to the whole team, like a class assignment or the final presentation. Team deadlines show at the bottom of everyone's list, and anyone can mark one <b>Submitted</b> once it's turned in.</p>") +
-      faq("How do I tell work for " + esc(CLIENT) + " apart from class work?", "<p>Look for the tag. Work for " + esc(CLIENT) + " has a filled " + forTag({ audience: "client" }, true) + " tag, and class assignments have an outlined " + forTag({ audience: "class" }, true) + " tag. <a href=\"#/deliverables\">Deliverables</a> lists both side by side, including things " + esc(CLIENT) + " mentioned that we haven't agreed to yet.</p>") +
-      faq("I made a typo in a suggested topic.", "<p>On <a href=\"#/meetings\">Meetings</a>, click <b>Remove</b> next to the topic and add it again. Removing it also takes it out of the meeting doc.</p>") +
-      faq("What emails will I get, and can I turn them down?", "<p>By default, one email on Monday at 8 AM with your week: what to aim for this week, anything carried over, what's new, and team deadlines. Midweek you only hear from the hub if new work lands that's due before Monday, or a firm deadline is less than a day away. Every item links straight to its page here. You also get the agenda email from " + esc(lead) + " before each meeting.</p><p>To change it, open your page from <a href=\"#/\">Team</a> and scroll to Email reminders: Weekly, Daily, or Off. Nothing is added to your personal Google Calendar. If you want a deadline there, open it here and click <b>Add to Google Calendar</b>.</p>") +
-      faq("Do I have to finish things on the exact due date?", "<p>No. Most dates are aims. Anything done by Sunday night of its week is on time, and it only shows as Overdue after that week ends. The exception is anything marked <b>Firm deadline</b>, like bCourses submissions and meeting agendas, which are due at the exact time shown.</p>") +
-      faq("Where do I actually do the work?", "<p>In the Google Doc, Sheet or bCourses page linked from each assignment. The hub only tracks who is doing what and when. <a href=\"#/files\">Files</a> lists everything in the team Drive folder.</p>") +
-      faq("How do I suggest a topic for a meeting?", "<p>Go to <a href=\"#/meetings\">Meetings</a>, type it under Suggest a topic, pick your name and click <b>Add topic</b>. It's added to the meeting doc under Suggested by the team, and " + esc(lead) + " decides what makes the agenda.</p>") +
-      faq("Where are the notes from past meetings?", "<p>Go to <a href=\"#/meetings/notes\">Past meeting notes</a> on the Meetings page. It lists every meeting doc, newest first, with its key takeaway, and has a search box. Each one opens the Google Doc. They all live in the Meetings folder of the team Drive, named with their date.</p>") +
-      faq("A meeting moved or got cancelled.", "<p>Change it in Google Calendar. " + esc(lead) + " owns the weekly event. The hub checks the calendar at 6 AM and 6 PM and updates the Meetings page on its own.</p>") +
-      faq("I finished something that isn't on my list.", "<p>Great. Mention it to " + esc(pm) + " or at the next meeting so it can be added and counted.</p>") +
-      faq("What is the team code, and what if I lose it?", "<p>It keeps the team's details private. You enter it once on each device. If you lose it, ask " + esc(pm) + ". Please don't share it outside the team.</p>") +
-      faq("It says my change wasn't saved.", "<p>Usually a dropped connection. Reload the page and try again. If it keeps happening, tell " + esc(pm) + ".</p>") +
-      faq("Does it work on my phone, with a screen reader, or in dark mode?", "<p>Yes. It fits small screens, follows your device's dark mode, and works with a keyboard and screen readers. Buttons are large enough to tap easily.</p>") +
-      faq("Why does the text look different?", "<p>The hub uses Atkinson Hyperlegible Next, a typeface from the Braille Institute designed so letters like l, 1 and I are easy to tell apart.</p>") +
+      faq("My task is wrong, or a task is missing.", "<p>Tell " + esc(pm) + ". Only the project manager can add, change or delete tasks. Then one person is responsible for the list.</p>") +
+      faq("What is the difference between a task and a team deadline?", "<p>A task is yours: one person, one job and one due date. A team deadline is for the whole team, for example a class assignment or the final presentation. Team deadlines show at the end of the list of each person. When the team submits one, any person can mark it as <b>Submitted</b>.</p>") +
+      faq("How do I know if work is for " + esc(CLIENT) + " or for the class?", "<p>Read the tag. Work for " + esc(CLIENT) + " has a filled " + forTag({ audience: "client" }, true) + " tag. Class work has an outlined " + forTag({ audience: "class" }, true) + " tag. The <a href=\"#/deliverables\">Deliverables</a> page shows both. It also shows things that " + esc(CLIENT) + " asked for but we did not agree to yet.</p>") +
+      faq("I made an error in a topic that I suggested.", "<p>On <a href=\"#/meetings\">Meetings</a>, click <b>Remove</b> next to the topic. Then add it again. When you remove it, the hub also removes it from the meeting doc.</p>") +
+      faq("Which emails will I get? Can I stop them?", "<p>You get one email each Monday at 8 AM. It shows your tasks for the week, tasks from last week that are not done, new tasks and team deadlines.</p><p>During the week, the hub sends an email only in two cases. A new task is due before Monday, or a firm deadline is less than one day away. Each item in an email has a link to its page in the hub. Before each meeting, you also get the agenda email from " + esc(lead) + ".</p><p>To change your emails, open your page from <a href=\"#/\">Team</a>. Go to Email reminders. Select Weekly, Daily or Off.</p><p>The hub does not add items to your own Google Calendar. To add a deadline, open it in the hub and click <b>Add to Google Calendar</b>.</p>") +
+      faq("Must I finish each task on the exact due date?", "<p>No. Most dates are targets. A task is on time if you finish it before Sunday night of its week. It shows as Overdue only after that week ends.</p><p>Tasks marked <b>Firm deadline</b> are different. Examples are bCourses submissions and meeting agendas. They are due at the exact time shown.</p>") +
+      faq("Where do I do the work?", "<p>In the Google Doc, Sheet or bCourses page that each task links to. The hub only shows who does what, and when. The <a href=\"#/files\">Files</a> page shows all files in the team Drive folder.</p>") +
+      faq("How do I suggest a topic for a meeting?", "<p>Go to <a href=\"#/meetings\">Meetings</a>. Type the topic below Suggest a topic, select your name and click <b>Add topic</b>. The hub adds it to the meeting doc below Suggested by the team. " + esc(lead) + " decides which topics go on the agenda.</p>") +
+      faq("Where are the notes from past meetings?", "<p>Go to <a href=\"#/meetings/notes\">Past meeting notes</a> on the Meetings page. It shows each meeting doc, with the newest first, and its key takeaway. Use the search box to find a meeting. Each item opens the Google Doc. All meeting docs are in the Meetings folder of the team Drive. Their names start with the date.</p>") +
+      faq("A meeting moved or was cancelled.", "<p>Change it in Google Calendar. " + esc(lead) + " owns the weekly event. The hub reads the calendar at 6 AM and 6 PM and updates the Meetings page.</p>") +
+      faq("I finished work that is not on my list.", "<p>Good. Tell " + esc(pm) + " or say it at the next meeting. Then " + esc(pm) + " can add it.</p>") +
+      faq("What is the team code? What do I do if I lose it?", "<p>The code keeps the details of the team private. You type it one time on each device. If you lose it, ask " + esc(pm) + ". Do not share it with people outside the team.</p>") +
+      faq("The hub says that it did not save my change.", "<p>Usually the connection stopped. Reload the page and try again. If the problem continues, tell " + esc(pm) + ".</p>") +
+      faq("Can I use the hub on my phone, with a screen reader, or in dark mode?", "<p>Yes. The hub fits small screens and follows the dark mode of your device. It works with a keyboard and with screen readers. The buttons are large, so they are easy to tap.</p>") +
+      faq("Why does the text look different?", "<p>The hub uses the font Atkinson Hyperlegible Next, from the Braille Institute. In this font, letters such as l, 1 and I are easy to tell apart.</p>") +
       "</section></div>";
   }
 
   function viewGate(msg) {
-    return '<div class="wrap"><form class="gate" id="gate"><h1 tabindex="-1">Enter the team code</h1><p>Gregor shared this code with the team. You only need to enter it once on this device.</p>' +
+    return '<div class="wrap"><form class="gate" id="gate"><h1 tabindex="-1">Enter the team code</h1><p>Gregor gave this code to the team. You type it one time on each device.</p>' +
       '<div class="field"><label for="code">Team code</label><input id="code" type="password" autocomplete="current-password" required></div>' +
       (msg ? '<p class="error" role="alert">' + esc(msg) + "</p>" : "") + '<div><button class="btn btn--solid" type="submit">Continue</button></div></form></div>';
   }
@@ -824,7 +826,7 @@
     var moved = renamedHash(h);
     if (moved) { location.replace(moved); return; }
     var html, title = "Microbe Busters Hub";
-    if (view === "m") { html = viewMember(h[1]); title = member(h[1]).name + ", assignments"; }
+    if (view === "m") { html = viewMember(h[1]); title = member(h[1]).name + ", tasks"; }
     else if (view === "a") { var a = byId(state.data.assignments, h[1]); html = viewAssignment(h[1]); if (a) title = a.title; }
     else if (view === "p") { var pj = byId(state.data.projects, h[1]); html = viewProject(h[1]); if (pj) title = pj.name; }
     else if (view === "pm") { html = viewPM(); title = "Project view"; }
@@ -869,7 +871,7 @@
 
   function needPmCode() { return !state.demo && !store.get("pmCode"); }
   function pmCodeField() {
-    return needPmCode() ? '<div class="field"><label for="pm-code">Project manager code</label><input id="pm-code" name="pmCode" type="password" autocomplete="off" required><small>Needed once per device to add or change assignments.</small></div>' : "";
+    return needPmCode() ? '<div class="field"><label for="pm-code">Project manager code</label><input id="pm-code" name="pmCode" type="password" autocomplete="off" required><small>You need it one time on each device to add or change tasks.</small></div>' : "";
   }
   function openDialog(html, onSubmit) {
     var dlg = document.createElement("dialog");
@@ -910,7 +912,7 @@
     var who = editing
       ? '<div class="field"><label for="as-who">Assigned to</label><select id="as-who" name="memberId">' + state.data.members.map(function (m) { return '<option value="' + esc(m.id) + '"' + (m.id === a.memberId ? " selected" : "") + ">" + esc(m.name) + "</option>"; }).join("") + "</select></div>"
       : '<fieldset class="checks"><legend>Assign to (one copy each)</legend>' + state.data.members.map(function (m) { return '<label class="check"><input type="checkbox" name="memberIds" value="' + esc(m.id) + '"> ' + bullet(m, "sm") + " " + esc(m.name) + "</label>"; }).join("") + "</fieldset>";
-    return '<form method="dialog"><div class="dlg__head"><h2>' + (editing ? "Edit assignment" : "New assignment") + '</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body">' +
+    return '<form method="dialog"><div class="dlg__head"><h2>' + (editing ? "Edit task" : "New task") + '</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body">' +
       '<div class="field"><label for="as-proj">Project</label><select id="as-proj" name="projectId">' + state.data.projects.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === a.projectId ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</select></div>" + who +
       '<div class="field"><label for="as-title">Title</label><input id="as-title" name="title" type="text" required value="' + esc(a.title) + '"><small>Start with a verb, for example "Draft the pre-harvest section".</small></div>' +
       '<div class="field"><label for="as-ins">What to do</label><textarea id="as-ins" name="instructions">' + esc(a.instructions) + "</textarea><small>One step per line. Start lines with a dash to make a numbered list.</small></div>" +
@@ -920,8 +922,8 @@
       '<div class="field"><label for="as-link">Or paste a link</label><input id="as-link" name="link" type="url" value="' + esc(a.link) + '" placeholder="https://"></div>' +
       '<div class="field"><label for="as-label">Button text for the link</label><input id="as-label" name="linkLabel" type="text" value="' + esc(a.linkLabel) + '" placeholder="Open the document"></div>' +
       pmCodeField() + '</div><div class="dlg__foot">' +
-      (editing ? '<button type="button" class="btn btn--danger" data-act="delete-assignment" data-id="' + esc(a.id) + '">Delete assignment</button>' : "") +
-      '<button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn--solid">' + (editing ? "Save changes" : "Create assignment") + "</button></div></form>";
+      (editing ? '<button type="button" class="btn btn--danger" data-act="delete-assignment" data-id="' + esc(a.id) + '">Delete task</button>' : "") +
+      '<button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn--solid">' + (editing ? "Save changes" : "Create task") + "</button></div></form>";
   }
 
   function saveAssignment(existing, v) {
@@ -942,14 +944,14 @@
         if (i > -1) state.data.assignments[i] = s; else state.data.assignments.push(s);
       });
       route();
-      toast((existing ? "Saved" : "Created " + saved.length + (saved.length === 1 ? " assignment" : " assignments")) + (r.demo ? " (demo, not saved)" : ""));
+      toast((existing ? "Saved" : "Created " + saved.length + (saved.length === 1 ? " task" : " tasks")) + (r.demo ? " (demo, not saved)" : ""));
     });
   }
 
   function confirmDelete(id) {
     var a = byId(state.data.assignments, id); if (!a) return;
-    openDialog('<form method="dialog"><div class="dlg__head"><h2>Delete this assignment?</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body"><p><b>' + esc(a.title) + "</b> will be removed from " + esc(first(member(a.memberId).name)) + "'s list. This can't be undone.</p>" + pmCodeField() +
-      '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Keep it</button><button type="submit" class="btn btn--solid">Delete assignment</button></div></form>', function () {
+    openDialog('<form method="dialog"><div class="dlg__head"><h2>Delete this task?</h2><button type="button" data-close aria-label="Close">×</button></div><div class="dlg__body"><p><b>' + esc(a.title) + "</b> will be removed from " + esc(first(member(a.memberId).name)) + "'s list. This can't be undone.</p>" + pmCodeField() +
+      '</div><div class="dlg__foot"><button type="button" class="btn" data-close>Keep it</button><button type="submit" class="btn btn--solid">Delete task</button></div></form>', function () {
       return apiPost({ action: "deleteAssignment", id: id }).then(function (r) {
         state.data.assignments = state.data.assignments.filter(function (x) { return x.id !== id; });
         route(); toast("Deleted" + (r.demo ? " (demo, not saved)" : ""));
@@ -1070,7 +1072,7 @@
      GitHub Pages lets browsers cache files for up to 10 minutes, and Chrome sometimes holds them longer.
      version.json is always fetched fresh; if it names a newer build than this one, the hub refreshes
      the cached files and reloads (on first load), or offers a Reload button (when you come back to the tab). */
-  var BUILD = "20261014001019";
+  var BUILD = "20261017052803";
   var lastVersionCheck = 0;
   function checkVersion(onLoad) {
     if (BUILD.indexOf("__") === 0) return;            // local copy without a stamp
@@ -1099,7 +1101,7 @@
     main.innerHTML = skeleton();
     load().then(route).catch(function (e) {
       if (e.code === "team") { store.del("code"); main.innerHTML = viewGate("That code didn't work. Check the code Gregor shared and try again."); return; }
-      main.innerHTML = '<div class="wrap"><div class="head"><h1 tabindex="-1">Couldn\'t load assignments</h1><p>' + esc(e.message || "The server didn't respond.") + ' Check your connection, then reload the page.</p><div class="actions"><button class="btn btn--solid" type="button" onclick="location.reload()">Reload</button></div></div></div>';
+      main.innerHTML = '<div class="wrap"><div class="head"><h1 tabindex="-1">Could not load tasks</h1><p>' + esc(e.message || "The server didn't respond.") + ' Check your connection, then reload the page.</p><div class="actions"><button class="btn btn--solid" type="button" onclick="location.reload()">Reload</button></div></div></div>';
     });
   }
   checkVersion(true);

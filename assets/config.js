@@ -7,7 +7,10 @@ window.MB_CONFIG = {
   meetingsFolderUrl: "https://drive.google.com/drive/folders/1k2vkJJf-pYnd7YWXDp-FBlHh8pFhvqfz",
   pmMemberId: "gregor",
   clientName: "Christopher",
-  // Fall 2026 at Berkeley: instruction begins Aug 26, the semester ends Dec 18 (registrar's academic calendar)
+  // The progress bar follows the class, not the Berkeley semester (which ends Dec 18).
+  // DevEng C200 starts Aug 26. Its last deliverable is the final report, due Mon Dec 14.
+  termLabel: "DevEng C200",
+  termEndNote: "final report due",
   semesterStart: "2026-08-26",
-  semesterEnd: "2026-12-18"
+  semesterEnd: "2026-12-14"
 };

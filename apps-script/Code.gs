@@ -40,15 +40,37 @@ var MEETING_DEFAULTS = {
 };
 // Keep these in step with MEET_AGENDA_STEPS and MEET_NOTES_STEPS in tools/seed.py.
 var MEETING_STEPS = {
-  agenda: '- Open the meeting doc from the Meetings page. The hub makes it a week before the meeting, with the date, Meet link and next meeting filled in.\n' +
-    '- Prep: skim last meeting\'s notes (linked under Carry-over) for open action items, and check the hub for what is due this week.\n' +
-    '- Look at the topics the team suggested under Suggested by the team.\n' +
-    '- In the Agenda section, list 3 to 5 topics, each with who leads it and how many minutes.\n' +
-    '- On the Meetings page of the hub, click Share the agenda. It emails the team and marks this done.',
-  notes: '- During the meeting, take notes in the meeting doc under Discussion points, Decisions and Action items.\n' +
-    '- In the wrap-up, read back the action items and say the key takeaway out loud so the group can agree on it.\n' +
-    '- By noon the next day, merge the Meetily summary, give every action item an owner and a due date, and write the key takeaway (one or two sentences) under Key takeaway. It shows up in Past meeting notes in the hub.\n' +
-    '- Tell Gregor which action items should become assignments in the hub.'
+  agenda: 'Write the agenda for the meeting on Wednesday. The agenda is due on Tuesday at 9 PM.\n' +
+    '## Before you start\n' +
+    '- Read section 5 of the Microbe Busters how-to guide. The guide is on the Files page of the hub.\n' +
+    '## Steps\n' +
+    '1. Open the meeting doc. Use the button below or the Meetings page of the hub.\n' +
+    '2. Open the notes from last week. The link is below "Carry-over from last meeting".\n' +
+    '3. Copy each action item that is not done into the carry-over table. Write the status of each item.\n' +
+    '4. Read the topics below "Suggested by the team".\n' +
+    '5. Select 3 to 5 topics. Each topic must need a decision or help from Christopher.\n' +
+    '6. For each topic, write the name of the leader and the number of minutes.\n' +
+    '7. Check that the total is 55 minutes or less.\n' +
+    '8. On the Meetings page of the hub, click "Share the agenda".\n' +
+    '9. The hub sends the agenda to all people by email. It also marks this task as done.\n' +
+    '## Done when\n' +
+    '- The agenda has 3 to 5 topics. Each topic has a leader and a number of minutes.\n' +
+    '- You shared the agenda before 9 PM on Tuesday.',
+  notes: 'Write notes at the meeting. After the meeting, make the notes complete.\n' +
+    '## Before you start\n' +
+    '- Read section 8 of the Microbe Busters how-to guide. The guide is on the Files page of the hub.\n' +
+    '## Steps\n' +
+    '1. At the start of the meeting, start the Meetily recording.\n' +
+    '2. In the meeting doc, write notes below Discussion points, Decisions and Action items.\n' +
+    '3. At the end of the meeting, read the action items and the key takeaway aloud. Ask the group to agree.\n' +
+    '4. Before 12 PM the next day, copy the Meetily summary into the meeting doc.\n' +
+    '5. Check that each action item has a verb, an owner and a due date.\n' +
+    '6. Below "Key takeaway", write the key takeaway in 1 or 2 sentences.\n' +
+    '7. Tell me which action items must become hub tasks.\n' +
+    '## Done when\n' +
+    '- Decisions and Action items have text.\n' +
+    '- Each action item has an owner and a date.\n' +
+    '- The key takeaway has text.'
 };
 function setting(key) {
   return PropertiesService.getScriptProperties().getProperty(key) || MEETING_DEFAULTS[key] || '';
@@ -931,7 +953,7 @@ function sendDailyReminders(force) {
       if (team.length) parts.push(team.length + ' team deadline' + (team.length > 1 ? 's' : ''));
       subject = 'Microbe Busters: your week (' + parts.join(', ') + ')';
       html = emailShell('Hi ' + m.name.split(' ')[0] + ', here is your week.',
-        '<p style="margin:8px 0 0">Anything marked "aim for" is on time if it is done by Sunday night. Firm deadlines are exact.</p>' +
+        '<p style="margin:8px 0 0">An item marked "aim for" is on time if you finish it before Sunday night. Firm deadlines are exact.</p>' +
         emailSection('This week', week.map(item)) +
         emailSection('Carried over from earlier weeks', late.map(item)) +
         emailSection('New for you, due later', fresh.map(item)) +
